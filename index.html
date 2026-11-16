@@ -316,7 +316,7 @@ const KEY="meister-piloto-v1";
 function blankBase(v){const s={vend:v,tasa:896.12,retPct:75,visits:[],payments:[],sent:{},newInv:{},seq:5600,hist:makeHist(v),
   orders:[],oseq:1,newClients:[],pdv:{},profile:{cod:"V-"+String(hash(v)%900+100),zona:"Caracas "+["Este","Oeste","Centro","Sur"][hash(v)%4],tel:""},draft:null};
   demoOrders(s);return s}
-function load(){SES=LS.get(SKEY,null);if(SES&&SES.role==="vend"&&SEED[SES.name]){S=stateOf(SES.name);UI.tab="home"}else if(SES&&SES.role==="admin"){UI.per="sem"}else SES=null}
+function load(){SES=LS.get(SKEY,null);if(SES&&SES.role==="vend"&&SEED[SES.name]){S=stateOf(SES.name);UI.tab="home"}else if(SES&&SES.role==="admin"){if(window.API_URL&&!window.__ADMIN_DATA)SES=null;else UI.per="sem"}else SES=null}
 function save(){try{const all=JSON.parse(localStorage.getItem(KEY)||"{}");all[S.vend]=S;all._last=S.vend;localStorage.setItem(KEY,JSON.stringify(all))}catch(e){}}
 function switchVend(v,keepTab){save();let all={};try{all=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){}S=all[v]||blank(v);UI={tab:keepTab||"ruta",visit:null,step:0,rep:"dia",modal:null,of:UI.of};save();render()}
 /* historial demo de los 5 días hábiles previos para que el reporte semanal tenga datos */
@@ -574,21 +574,22 @@ function loginView(){
     <h2>Hola, ¿quién eres?</h2><p class="muted" style="text-align:center;margin:-6px 0 18px">Toca tu nombre para entrar</p>
     <div class="who">${sellers.map(v=>`<button data-who="${v}" ${v==="Oficina"?'class="ofi"':""}><span class="av">${v==="Oficina"?"🏢":ini(v)}</span>${v}${v==="Oficina"?'<small>Cadenas de supermercado</small>':""}</button>`).join("")}</div>
     <button class="btn sec full" style="margin-top:16px" data-who="__desp">📦 Despacho / Almacén</button><button class="btn ghost full" style="margin-top:8px" data-who="__admin">Acceso administrador</button></div>`;
-  const adm=LG.who==="__admin";const hasA=!!LS.get(AKEY,null);
+  const adm=LG.who==="__admin";const hasA=!!LS.get(AKEY,null)||!!window.API_URL;
   const title=adm?(hasA?"PIN de administrador":LG.tmp?"Repite tu nuevo PIN":"Crea tu PIN de administrador"):LG.who==="__desp"?"Despacho":`Hola, ${first(LG.who)}`;
-  const sub=adm?(hasA?"Solo tú tienes este acceso":"Será el único PIN que abre el panel"):"Escribe tu PIN de 4 dígitos";
+  const sub=adm?(window.API_URL?(LG.busy?"Verificando con tu Drive…":"PIN de 6 dígitos · se verifica en tu Drive"):hasA?"Solo tú tienes este acceso":"Será el único PIN que abre el panel"):"Escribe tu PIN de 4 dígitos";
   return `<div class="login"><button class="btn ghost sm" data-key="back" style="align-self:flex-start">‹ Volver</button>
   <span class="av big ${adm?"adm":""}">${adm?"★":LG.who==="__desp"?"📦":ini(LG.who)}</span><h2>${title}</h2><p class="muted" style="text-align:center;margin:-6px 0 14px">${sub}</p>
-  <div class="dotsp">${[0,1,2,3].map(i=>`<i class="${i<LG.pin.length?"on":""}"></i>`).join("")}</div>
+  <div class="dotsp">${Array.from({length:PINLEN()},(_,i)=>i).map(i=>`<i class="${i<LG.pin.length?"on":""}"></i>`).join("")}</div>
   <div class="perr">${LG.err||"&nbsp;"}</div>
   <div class="pad">${["1","2","3","4","5","6","7","8","9","","0","del"].map(k=>k?`<button data-key="${k}">${k==="del"?"⌫":k}</button>`:"<span></span>").join("")}</div>
   ${adm?"":`<p class="muted" style="text-align:center;margin-top:14px">Semana de prueba: el PIN de todos es <b>1234</b></p>`}</div>`}
 function pressKey(k){
   if(k==="back"){LG={step:"who",who:null,pin:"",err:"",tmp:null};return render()}
   if(k==="del"){LG.pin=LG.pin.slice(0,-1);LG.err="";return render()}
-  if(LG.pin.length>=4)return;LG.pin+=k;LG.err="";render();
-  if(LG.pin.length<4)return;
+  if(LG.pin.length>=PINLEN())return;LG.pin+=k;LG.err="";render();
+  if(LG.pin.length<PINLEN())return;
   setTimeout(()=>{const p=LG.pin;LG.pin="";
+    if(LG.who==="__admin"&&window.API_URL){adminRemote(p);return}
     if(LG.who==="__admin"){const a=LS.get(AKEY,null);
       if(!a){if(!LG.tmp){LG.tmp=p;return render()}if(LG.tmp!==p){LG.tmp=null;LG.err="No coinciden. Intenta de nuevo.";return render()}LS.set(AKEY,pinH(p))}
       else if(a!==pinH(p)){LG.err="PIN incorrecto";return render()}
@@ -1946,7 +1947,7 @@ function blankBase(v){return{vend:v,tasa:896.12,retPct:75,visits:[],payments:[],
   orders:[],oseq:1,newClients:[],pdv:{},profile:{cod:"V-"+String(hash(v)%900+100),zona:"",tel:""},draft:null}}
 
 const BK={mode:null,st:"off",last:0,sig:"",busy:false,again:false,err:""};
-function gsr(){try{if(typeof google!=="undefined"&&google.script&&google.script.run)return google.script.run}catch(e){}if(!window.API_URL)return null;let ok=()=>{},fail=()=>{};const call=(action,payload)=>{fetch(window.API_URL,{method:"POST",credentials:"omit",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,payload})}).then(r=>r.json()).then(j=>{if(!j||j.ok===false)throw new Error((j&&j.error)||"Sin respuesta");ok(j.data)}).catch(e=>fail(e))};const r={withSuccessHandler(f){ok=f;return r},withFailureHandler(f){fail=f;return r},guardar(p){call("guardar",p)},getTasa(){call("getTasa")},getEstado(v){call("getEstado",v)}};return r}
+function gsr(){try{if(typeof google!=="undefined"&&google.script&&google.script.run)return google.script.run}catch(e){}if(!window.API_URL)return null;let ok=()=>{},fail=()=>{};const call=(action,payload)=>{fetch(window.API_URL,{method:"POST",credentials:"omit",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,payload})}).then(r=>r.json()).then(j=>{if(!j||j.ok===false)throw new Error((j&&j.error)||"Sin respuesta");ok(j.data)}).catch(e=>fail(e))};const r={withSuccessHandler(f){ok=f;return r},withFailureHandler(f){fail=f;return r},guardar(p){call("guardar",p)},getTasa(){call("getTasa")},getEstado(v){call("getEstado",v)},admin(p){call("admin",{pin:p})}};return r}
 function blank4(v){return blankBase(v)} /* piloto: sin cobros de demostración */
 function bkNom(cod){const c=cli(cod);return c?c.nombre:(masterOf(cod)||[])[1]||cod}
 function bkPayload(){
@@ -1987,6 +1988,17 @@ function bkInit(){if(!gsr())return;BK.mode="drive";BK.st="ok";bkTasa();
   bkTick();bkPill()}
 setTimeout(bkInit,600);
 
+
+/* ===== Superadministrador: PIN verificado en el Drive y datos de todos los vendedores ===== */
+function PINLEN(){return(LG&&LG.who==="__admin"&&window.API_URL)?6:4}
+function adminRemote(pin){LG.busy=true;render();
+  gsr().withSuccessHandler(d=>{LG.busy=false;if(!d||!d.ok){LG.err=(d&&d.error)||"PIN incorrecto";return render()}
+      window.__ADMIN_DATA={};Object.keys(d.estados||{}).forEach(v=>{try{const st=Object.assign(blank(v),JSON.parse(d.estados[v]));st.vend=v;window.__ADMIN_DATA[v]=st}catch(e){}});
+      window.__ADMIN_AT=d.at;setSes({role:"admin"});LG={step:"who",who:null,pin:"",err:"",tmp:null};UI={tab:"ruta",visit:null,step:0,rep:"dia",modal:null,per:"sem"};render();
+      try{(function(n){toast("👑 Datos de "+n+(n===1?" vendedor":" vendedores")+" cargados desde tu Drive")})(Object.keys(window.__ADMIN_DATA).length)}catch(e){}})
+    .withFailureHandler(e=>{LG.busy=false;LG.err="Sin conexión con el Drive. Intenta de nuevo.";render()}).admin(pin)}
+const __stateOfLocal=stateOf;stateOf=function(v){if(SES&&SES.role==="admin"&&window.__ADMIN_DATA)return window.__ADMIN_DATA[v]||blank(v);return __stateOfLocal(v)};
+const __saveStateLocal=saveState;saveState=function(st){if(SES&&SES.role==="admin"&&window.__ADMIN_DATA){window.__ADMIN_DATA[st.vend]=st;return}return __saveStateLocal(st)};
 document.addEventListener("keydown",e=>{if(!SES&&LG.step==="pin"){if(/^\d$/.test(e.key))pressKey(e.key);else if(e.key==="Backspace")pressKey("del")}});
 load();render();
 
