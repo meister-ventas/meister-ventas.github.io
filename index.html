@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="apple-touch-icon" href="icon-180.png"><link rel="manifest" href="manifest.webmanifest"><meta name="apple-mobile-web-app-title" content="Meister Ventas"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#b3261e"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect width=%2272%22 height=%2272%22 rx=%2220%22 fill=%22%23b3261e%22/%3E%3Cpath d=%22M17 51V22h9.5l9.5 14.5L45.5 22H55v29h-8.6V36.8l-7.6 11.4h-5.6l-7.6-11.4V51z%22 fill=%22white%22/%3E%3C/svg%3E"><script>window.__errs=[];window.addEventListener("error",function(e){window.__errs.push(e.message+" @"+e.lineno+":"+e.colno);try{var d=document.getElementById("__err")||document.createElement("pre");d.id="__err";d.style.cssText="position:fixed;top:0;left:0;right:0;z-index:9999;background:#fee;color:#900;font-size:11px;white-space:pre-wrap;padding:6px;margin:0";d.textContent="Error: "+window.__errs.join("\n");(document.body||document.documentElement).appendChild(d)}catch(x){}});</script><title>Meister Ventas</title>
+<link rel="apple-touch-icon" href="icon-180.png"><link rel="manifest" href="manifest.webmanifest"><meta name="apple-mobile-web-app-title" content="Meister Ventas"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="theme-color" content="#b3261e"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect width=%2272%22 height=%2272%22 rx=%2220%22 fill=%22%23b3261e%22/%3E%3Cpath d=%22M17 51V22h9.5l9.5 14.5L45.5 22H55v29h-8.6V36.8l-7.6 11.4h-5.6l-7.6-11.4V51z%22 fill=%22white%22/%3E%3C/svg%3E"><script>window.__errs=[];window.addEventListener("error",function(e){window.__errs.push(e.message+" @"+e.lineno+":"+e.colno);try{var d=document.getElementById("__err")||document.createElement("pre");d.id="__err";d.style.cssText="position:fixed;top:0;left:0;right:0;z-index:9999;background:#fee;color:#900;font-size:11px;white-space:pre-wrap;padding:6px;margin:0";d.textContent="Error: "+window.__errs.join("\n");(document.body||document.documentElement).appendChild(d)}catch(x){}});</script><script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init("phc_zgrYhrCy5bGq9a4Q6GZw7UriLbWNWw7R6C8X32Mn7jnu",{api_host:"https://us.i.posthog.com",person_profiles:"identified_only",autocapture:false,capture_pageview:true,capture_pageleave:true,session_recording:{maskAllInputs:true,maskTextSelector:"*"},disable_surveys:true});posthog.register({app:"meister-ventas",version:"piloto-1"});</script><title>Meister Ventas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -1989,6 +1989,37 @@ setTimeout(bkInit,600);
 
 document.addEventListener("keydown",e=>{if(!SES&&LG.step==="pin"){if(/^\d$/.test(e.key))pressKey(e.key);else if(e.key==="Backspace")pressKey("del")}});
 load();render();
+
+/* ===== Medición de uso con PostHog (solo en la versión de GitHub Pages) ===== */
+(function(){
+  function ph(){return(window.posthog&&typeof window.posthog.capture==="function")?window.posthog:null}
+  function cap(ev,props){try{const p=ph();if(p)p.capture(ev,Object.assign({rol:SES?SES.role:"",vendedor:(SES&&SES.role==="vend"&&S)?S.vend:"",pantalla:(typeof UI!=="undefined"&&UI&&UI.tab)||"",en_linea:navigator.onLine},props||{}))}catch(e){}}
+  window.mvTrack=cap;
+  let who=null,last=null;
+  function snap(){if(!S||!SES||SES.role!=="vend")return null;
+    return{o:S.orders.length,oe:S.orders.filter(o=>o.edited||o.editado).length,p:S.payments.length,v:S.visits.length,vc:S.visits.filter(v=>v.closed).length,
+      s:Object.keys(S.sent||{}).length}}
+  setInterval(function(){try{
+    const w=SES?(SES.role==="vend"&&S?S.vend:SES.role):null;
+    if(w!==who){who=w;const p=ph();if(p){if(w){p.identify(w,{name:w,rol:SES.role});cap("entro_app")}else{cap("salio_app");p.reset()}}last=snap();return}
+    const n=snap();if(!n||!last){last=n;return}
+    if(n.v>last.v)cap("visita_iniciada",{total_dia:n.v});
+    if(n.vc>last.vc)cap("visita_cerrada",{total:n.vc});
+    if(n.o>last.o)cap("pedido_emitido",{total:n.o});
+    if(n.oe>last.oe)cap("pedido_editado");
+    if(n.p>last.p)cap("cobro_registrado",{total:n.p});
+    if(n.s>last.s)cap("reporte_enviado");
+    last=n}catch(e){}},2500);
+  document.addEventListener("click",function(e){try{
+    const el=e.target.closest("[data-act],[data-tab],[data-who],[data-open],[data-rcli],[data-key]");if(!el||el.hasAttribute("data-key"))return;
+    const a=el.getAttribute("data-act")||(el.hasAttribute("data-tab")?"tab_"+el.getAttribute("data-tab"):el.hasAttribute("data-who")?"elige_usuario":el.hasAttribute("data-open")?"abre_cliente_ruta":"cliente_ruta");
+    cap("toque",{accion:a});
+    if(/wa|whats/i.test(a))cap("abre_whatsapp",{accion:a})}catch(x){}},true);
+  window.addEventListener("online",()=>cap("conexion",{estado:"con_senal"}));
+  window.addEventListener("offline",()=>cap("conexion",{estado:"sin_senal"}));
+  window.addEventListener("error",e=>cap("error_app",{mensaje:String(e.message).slice(0,200),linea:e.lineno}));
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)cap("vuelve_a_la_app")});
+})();
 </script>
 <script>
 window.API_URL="https://script.google.com/macros/s/AKfycbxK3r0wGWp1Gr-3P5ewu7x75MuHLlcWo_AIvQ-y8VM69wy65JVsLFpcvgvGRlZpTmGC0g/exec";
