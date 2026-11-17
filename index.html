@@ -2004,6 +2004,27 @@ const __saveStateLocal=saveState;saveState=function(st){if(SES&&SES.role==="admi
 /* ===== Pedidos exactos: quitar producto con un toque ===== */
 document.addEventListener("click",function(e){const b=e.target.closest("[data-rm]");if(!b||!S||!S.cart)return;e.preventDefault();e.stopImmediatePropagation();
   delete S.cart.items[b.getAttribute("data-rm")];save();try{keepScroll()}catch(x){}render();toast("Producto quitado del pedido")},true);
+
+/* ===== Confirmación antes de emitir o guardar un pedido ===== */
+window.addEventListener("click",function(e){
+  const ok=e.target.closest("[data-emitok]"),back=e.target.closest("[data-emitback]");
+  if(back){e.preventDefault();e.stopImmediatePropagation();closeModal();return}
+  if(ok){e.preventDefault();e.stopImmediatePropagation();closeModal();window.__emitOK=true;
+    setTimeout(()=>{const b=document.querySelector('[data-act="emit2"]');if(b)b.click();window.__emitOK=false},60);return}
+  const b=e.target.closest('[data-act="emit2"]');if(!b||window.__emitOK||!S||!S.cart||!SES||SES.role!=="vend")return;
+  e.preventDefault();e.stopImmediatePropagation();
+  const k=S.cart;const it=Object.entries(k.items).filter(([sku,q])=>q>0&&PROD(sku));
+  if(!it.length){toast("El pedido está vacío · agrega al menos un producto");return}
+  const t=cartT(k);const c=cli(k.cod)||{nombre:k.cod};const pv=(pdvs(k.cod).find(x=>x.id===k.pdv)||pdvs(k.cod)[0]||{});
+  const rows=it.map(([sku,q])=>{const p=PROD(sku);return `<tr><td style="padding:6px 0"><b>${(+q).toLocaleString("es-VE")} ${p.pres==="peso"?"kg":"paq"}</b></td><td style="padding:6px 8px">${esc(p.n)}</td><td class="mono" style="text-align:right;padding:6px 0">${usd(q*p.p)}</td></tr>`}).join("");
+  openModal(`<div class="grab"></div><h3>${k.editId?"¿Guardar los cambios del pedido?":"¿Emitir este pedido?"}</h3>
+    <div class="muted" style="margin-bottom:8px">${esc(c.nombre)}${pv.nombre?" · "+esc(pv.nombre):""}${k.entrega?" · entrega "+esc(k.entrega):""}</div>
+    <div style="background:#fff7e6;border:1px solid #f0dcb0;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:15px">
+      <b>${it.length} ${it.length===1?"producto":"productos"}</b> · ${t.u} · <b class="mono">${usd(t.sub)}</b> <span class="muted">sin IVA (estimado)</span></div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>
+    ${k.obs?`<div class="muted" style="margin-top:8px">Obs.: ${esc(k.obs)}</div>`:""}
+    <p class="muted" style="margin:10px 0 0">Revisa que sea exactamente lo que pidió el cliente.</p>
+    <div style="display:flex;gap:8px;margin-top:14px"><button class="btn sec" style="flex:1" data-emitback>✏️ Corregir</button><button class="btn" style="flex:1.4" data-emitok>✅ ${k.editId?"Guardar":"Confirmar y emitir"}</button></div>`)},true);
 document.addEventListener("keydown",e=>{if(!SES&&LG.step==="pin"){if(/^\d$/.test(e.key))pressKey(e.key);else if(e.key==="Backspace")pressKey("del")}});
 load();render();
 
