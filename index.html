@@ -2047,6 +2047,23 @@ document.addEventListener("click",function(e){const b=e.target.closest("[data-sx
 const __suggest1=suggest;suggest=function(cod){return puedeReponer(cod)?__suggest1(cod):{}};
 document.addEventListener("input",function(e){const t=e.target;if(!t||!(t.dataset&&(t.dataset.sxv!==undefined||t.dataset.ex!==undefined)))return;try{const v=visitOf(UI.page.cod);if(v)v.invDone=true}catch(x){}},true);
 document.addEventListener("keydown",e=>{if(!SES&&LG.step==="pin"){if(/^\d$/.test(e.key))pressKey(e.key);else if(e.key==="Backspace")pressKey("del")}});
+
+/* ===== Despacho desde la Planta (planta/): el vendedor ve su pedido despachado con el peso real y la factura ===== */
+function plantaSync(){try{
+  if(!SES||SES.role!=="vend"||!S||!window.API_URL)return;
+  if(!S.orders.some(o=>!o.hist.despachada&&!o.hist.cobrada&&!o.hist.reportada))return;
+  fetch(window.API_URL,{method:"POST",credentials:"omit",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"getEstado",payload:"Planta Meister"})})
+   .then(r=>r.json()).then(j=>{if(!j||!j.ok||!j.data||!S||SES.role!=="vend")return;let d;try{d=JSON.parse(j.data)}catch(e){return}
+    const ps=Object.values(d.pst||{}).filter(x=>x&&!x._del&&x.est==="desp"&&x.vend===S.vend);let n=0;
+    ps.forEach(x=>{const o=S.orders.find(y=>y.id===x.oid);if(!o||o.hist.despachada||o.hist.cobrada)return;
+      const kg=o.items.map((it,i)=>x.real&&x.real[i]!=null?+x.real[i]:null);const old=o.id;
+      withS(S,()=>dispatchOrder(S,o,kg,x.guia||"",new Date(x.ts)));
+      if(x.fac){const gen=o.fac;o.fac=x.fac;(S.newInv[o.cod]||[]).forEach(f=>{if(f.n===gen)f.n=x.fac});S.payments.forEach(p=>{if(p.cod===o.cod&&(p.fac===gen||p.fac===old))p.fac=x.fac})}
+      o.planta={ts:x.ts,lotes:x.lotes||[]};n++});
+    if(n){save();render();toast(n===1?"🚚 Planta despachó 1 pedido":"🚚 Planta despachó "+n+" pedidos")}}).catch(()=>{})}catch(e){}}
+setTimeout(plantaSync,5000);setInterval(plantaSync,180000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)setTimeout(plantaSync,1500)});
+
 load();if(/despacho/.test(location.hash)&&!SES){LG={step:"pin",who:"__desp",pin:"",err:"",tmp:null}}render();
 
 /* ===== Medición de uso con PostHog (solo en la versión de GitHub Pages) ===== */
