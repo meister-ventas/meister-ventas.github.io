@@ -2030,14 +2030,15 @@ window.addEventListener("click",function(e){
 /* ===== Listas de precio por tipo de cliente (lista al 17-11-2026) ===== */
 const LISTAS=["","Lista 1 · Detal","Lista 2 · A/S Cadenas","Lista 3 · Pueblo / Intermediario"];
 const CADENA_RE=/PLAZA|GAMA|EXCELSIOR|SUPERMERCADOS? RIO|AUTOMERCADOS? RIO|LUVEBRAS|MADEIRENSE|FORUM/i;
-function listaDe(cod){const T=(window.__D&&window.__D.TIPOS)||{};if(T[cod])return T[cod];const c=cli(cod);const n=(c&&c.nombre)||((masterOf(cod)||[])[1])||"";return CADENA_RE.test(n)?2:3}
+function listaDe(cod){const T=(window.__D&&window.__D.TIPOS)||{};if(T[cod])return T[cod];const c=cli(cod);const n=(c&&c.nombre)||((masterOf(cod)||[])[1])||"";return CADENA_RE.test(n)?2:1}
+function tipoDe(cod){const T=(window.__D&&window.__D.CANAL)||{};return T[cod]||""}
 let __lista=0;
 function aplicaLista(n){if(n===__lista)return;__lista=n;CAT.forEach(p=>{if(!p.lp)return;let v=p.lp[n-1];if(v==null)v=p.lp[0];
   if(p.lpkg)v=Math.round(v*(p.pqkg||0.5)*100)/100;if(p.pres==="peso"){p.pk=v;p.p=v}else p.p=v})}
 const __render1=render;render=function(){try{const cod=(S&&S.cart&&S.cart.cod)||(UI&&UI.page&&UI.page.cod)||null;aplicaLista(cod?listaDe(cod):1)}catch(e){}
   const r=__render1.apply(this,arguments);
   try{const sg=document.querySelector(".seg2");if(S&&S.cart&&sg&&!document.getElementById("plist")){const d=document.createElement("div");d.id="plist";
-    d.style.cssText="margin:6px 0 8px;padding:6px 10px;border-radius:10px;background:#eef3fb;color:#1c4587;font-size:12.5px;font-weight:600";d.textContent="💲 Precios: "+LISTAS[listaDe(S.cart.cod)];sg.parentNode.insertBefore(d,sg)}}catch(e){}
+    d.style.cssText="margin:6px 0 8px;padding:6px 10px;border-radius:10px;background:#eef3fb;color:#1c4587;font-size:12.5px;font-weight:600";const tp=tipoDe(S.cart.cod);d.textContent="💲 Precios: "+LISTAS[listaDe(S.cart.cod)]+(tp?" · "+tp:"");sg.parentNode.insertBefore(d,sg)}}catch(e){}
   return r};
 /* ===== "Reponer anaquel": solo si el vendedor contó el inventario en esta visita ===== */
 function puedeReponer(cod){const v=visitOf(cod);return!!(v&&!v.closed&&v.stock&&v.invDone)}
@@ -2047,7 +2048,6 @@ document.addEventListener("click",function(e){const b=e.target.closest("[data-sx
 const __suggest1=suggest;suggest=function(cod){return puedeReponer(cod)?__suggest1(cod):{}};
 document.addEventListener("input",function(e){const t=e.target;if(!t||!(t.dataset&&(t.dataset.sxv!==undefined||t.dataset.ex!==undefined)))return;try{const v=visitOf(UI.page.cod);if(v)v.invDone=true}catch(x){}},true);
 document.addEventListener("keydown",e=>{if(!SES&&LG.step==="pin"){if(/^\d$/.test(e.key))pressKey(e.key);else if(e.key==="Backspace")pressKey("del")}});
-
 /* ===== Despacho desde la Planta (planta/): el vendedor ve su pedido despachado con el peso real y la factura ===== */
 function plantaSync(){try{
   if(!SES||SES.role!=="vend"||!S||!window.API_URL)return;
