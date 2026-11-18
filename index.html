@@ -949,11 +949,15 @@ function home(){
   ${repCard()}`}
 
 /* ---------- CLIENTES ---------- */
+/* "Por visitar" = clientes del rutero de hoy aún sin visita cerrada (sin rutero o sin ruta hoy: sus clientes propios activos) */
+function porVisitar(){let L=[];try{const h=hoyRuta();L=rutaDia(h.w,h.d).map(e=>e.c)}catch(e){}
+  if(!L.length){try{L=propiosDe(S.vend).filter(x=>x[2]===1).map(x=>x[0])}catch(e){}}return new Set(L)}
+function cliPasa(c,f,q,PV){const v=visitOf(c.cod);const b=cxc(c);
+  if(f==="pend"&&(!PV.has(c.cod)||(v&&v.closed)))return false;if(f==="vis"&&!(v&&v.closed))return false;if(f==="venc"&&!(b[1]+b[2]+b[3]+b[4]>0))return false;
+  return !q||c.nombre.toLowerCase().includes(q)||c.cod.toLowerCase().includes(q)}
 function ruta3(){const f=UI.cf||"todos";const q=(UI.cq||"").toLowerCase();
-  const cl=clients();const flt=c=>{const v=visitOf(c.cod);const b=cxc(c);
-    if(f==="pend"&&v&&v.closed)return false;if(f==="vis"&&!(v&&v.closed))return false;if(f==="venc"&&!(b[1]+b[2]+b[3]+b[4]>0))return false;
-    return !q||c.nombre.toLowerCase().includes(q)||c.cod.toLowerCase().includes(q)};
-  const cnt=k=>cl.filter(c=>{const v=visitOf(c.cod);const b=cxc(c);return k==="pend"?!(v&&v.closed):k==="vis"?(v&&v.closed):k==="venc"?b[1]+b[2]+b[3]+b[4]>0:true}).length;
+  const cl=clients();const PV=porVisitar();const flt=c=>cliPasa(c,f,q,PV);
+  const cnt=k=>cl.filter(c=>cliPasa(c,k,"",PV)).length;
   return `<div class="search"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="cq2" placeholder="Buscar cliente o código" value="${esc(UI.cq||"")}" autocomplete="off"></div>
   <div class="chips">${[["todos","Todos"],["pend","Por visitar"],["venc","Con deuda"],["vis","Visitados"]].map(([k,l])=>`<button data-cf="${k}" class="${f===k?"on":""}">${l} <span>${cnt(k)}</span></button>`).join("")}</div>
   <div id="clist2">${cliCards(cl.filter(flt))}</div>
@@ -1130,7 +1134,7 @@ document.addEventListener("click",e=>{
   }
 });
 document.addEventListener("input",e=>{const t=e.target;if(!SES||SES.role!=="vend")return;
-  if(t.id==="cq2"){UI.cq=t.value;const f=UI.cf||"todos";const q=t.value.toLowerCase();$("#clist2").innerHTML=cliCards(clients().filter(c=>!q||c.nombre.toLowerCase().includes(q)||c.cod.toLowerCase().includes(q)));return}
+  if(t.id==="cq2"){UI.cq=t.value;const f=UI.cf||"todos";const q=t.value.toLowerCase();const PV=porVisitar();$("#clist2").innerHTML=cliCards(clients().filter(c=>cliPasa(c,f,q,PV)));return}
   if(t.id==="vq"){UI.vq=t.value;$("#vlist").innerHTML=sellList(clients(),t.value.toLowerCase());return}
   if(t.dataset.cobs!==undefined){S.cart.obs=t.value;save();return}});
 document.addEventListener("change",e=>{const t=e.target;if(!SES||SES.role!=="vend")return;
