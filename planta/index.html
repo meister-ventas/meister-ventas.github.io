@@ -344,6 +344,9 @@ body:has(#mdl) .bkpill{display:none}
 .semt{font-size:12px}.semt th.c{text-align:center;border-left:1px solid var(--line)}.semt tr.grp td{background:#efece8;font-weight:700;font-size:11.5px;letter-spacing:.3px}
 .semt td{padding:5px 4px}.semin{width:52px;padding:5px 4px;text-align:right;font-size:13px;border-radius:8px}
 #app.wide nav.tabs{max-width:1180px}#app.wide .semt td:first-child{min-width:230px}#app.wide .semt{font-size:12.5px}
+.ctabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}.ctabs button{background:#fff;border:1px solid var(--line);border-radius:14px;padding:9px 6px;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;line-height:1.2}
+.ctabs button span:first-child{font-size:20px}.ctabs button small{font-weight:400;color:var(--mut);font-size:11px}.ctabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}.ctabs button.on small{color:rgba(255,255,255,.75)}
+.cbad{display:inline-block;background:var(--red);color:#fff;border-radius:99px;font-size:10.5px;padding:1px 6px;margin-left:3px}
 
 </style>
 </head>
@@ -685,10 +688,9 @@ function myTasks(S){
     const mq=mpFuera();if(mq.length)t.unshift({tab:"cal",i:"⚠️",c:"red",t:`Decidir ${mq.length} recepción${mq.length>1?"es":""} fuera de rango`,s:mq.map(x=>MP(x.l.mp).n).slice(0,3).join(", ")})}
   if(has("receta")){const pr=DATA.F.filter(b=>{const f=F(b.id);return !f.ok&&DB.rec[b.id]&&!DB.rec[b.id]._del}).length;const sv=DATA.F.filter(b=>!F(b.id).ok).length;if(pr)t.push({tab:"exp",sub:"exp:coef",i:"📖",c:"amb",t:`${pr} ${pr>1?"recetas propuestas":"receta propuesta"} por validar`,s:"Cambios de Leyci o del planificador"});else if(sv)t.push({tab:"exp",sub:"exp:coef",i:"📖",c:"blu",t:`${sv} recetas sin validar`,s:"Coeficientes de referencia"})}
   if(has("plan")&&S.exp.al)t.push({tab:"exp",i:"🧮",c:"red",t:"Revisar faltantes de materiales",s:S.exp.s});
-  MPC.forEach(c=>{if(!has("c"+c))return;const sg=sugeridos(c).length,bor=ocs().filter(o=>o.cat===c&&o.est==="borr").length,at=ocs().filter(o=>o.cat===c&&atrasada(o)).length;
-    if(bor)t.push({tab:"comp",sub:"comp:"+c,i:"🛒",c:"amb",t:`Enviar ${bor} ${bor>1?"órdenes":"orden"} de ${CATS[c].s.toLowerCase()}`,s:"Están en borrador"});
-    if(at)t.push({tab:"comp",sub:"comp:"+c,i:"⏰",c:"red",t:`${at} ${at>1?"órdenes atrasadas":"orden atrasada"} de ${CATS[c].s.toLowerCase()}`,s:"Llama al proveedor"});
-    if(sg)t.push({tab:"comp",sub:"comp:"+c,i:"⚠️",c:"red",t:`${sg} ${CATS[c].s.toLowerCase()} bajo colchón`,s:"Toca comprar"})});
+  {const cs=MPC.filter(c=>has("c"+c));if(cs.length){const bor=ocs().filter(o=>cs.includes(o.cat)&&o.est==="borr").length,at=ocs().filter(o=>cs.includes(o.cat)&&atrasada(o)).length,sg=cs.reduce((a,c)=>a+sugeridos(c).length,0);
+    if(bor||at||sg){const first=cs.find(c=>sugeridos(c).length||ocs().some(o=>o.cat===c&&(o.est==="borr"||atrasada(o))))||cs[0];
+      t.push({tab:"comp",sub:"comp:"+tabOf(first),i:"🛒",c:at||sg?"red":"amb",t:"Compras pendientes",s:[sg?sg+" bajo colchón":"",bor?bor+" por enviar":"",at?at+" atrasadas":""].filter(Boolean).join(" · ")})}}}
   if(has("almmp")){const env=ocs().filter(o=>o.est==="env");if(env.length)t.push({tab:"rec",i:"📥",c:env.some(atrasada)?"red":"blu",t:`${env.length} ${env.length>1?"órdenes":"orden"} por recibir`,s:env.filter(o=>llega(o)<=today()).length+" deberían llegar hoy o antes"})}
   if(has("almpt")){if(S.venc)t.push({tab:"inv",sub:"inv:pt",i:"⏳",c:"red",t:S.venc+" lotes de producto terminado por vencer",s:"Despacharlos primero"});
     const b=DATA.PT.filter(p=>stock("PT:"+p.sku)<PT(p.sku).min&&(demandaSku()[p.sku]||0)>0).length;if(b)t.push({tab:"verif",i:"🌭",c:"amb",t:b+" productos terminados bajo colchón",s:"Con pedidos pendientes"})}
@@ -857,17 +859,21 @@ function conteoSheet(c){const ids=c==="pt"?DATA.PT.map(p=>"PT:"+p.sku):DATA.MP.f
 function ajuste(id,diff,tipo,nota,lote,vence){const it=itemOf(id);if(diff>0){const l=lote||((tipo==="ini"?"INI-":"AJ-")+today().slice(2).replace(/-/g,""));addMov(id,diff,tipo,"",nota,l,vence||(catOf(id)==="pt"?addD(today(),it.vida||90):null))}else if(diff<0)consumeFIFO(id,-diff,tipo,"",nota)}
 
 /* ---------- 6 · compras ---------- */
+const CTABS=[{k:"car",n:"Cárnica",ico:"🥩",cats:["car"]},{k:"noc",n:"No cárnica y limpieza",ico:"🧂",cats:["noc","lim"]},{k:"emp",n:"Empaque y tripa",ico:"🎞️",cats:["emp"]}];
+const tabOf = c => CTABS.find(t=>t.cats.includes(c)).k;
 function compView(){
-  const cats=MPC.filter(c=>has("c"+c));const all=cats.length?cats:MPC;const sub=UI.sub.compv||"oc";
+  const sub=UI.sub.compv||"oc";const mine=CTABS.filter(t=>t.cats.some(c=>has("c"+c)));
   const head=`<div class="seg"><button class="${sub==="oc"?"on":""}" data-sub="compv:oc">Órdenes</button><button class="${sub==="prov"?"on":""}" data-sub="compv:prov">Proveedores</button></div>`;
-  if(sub==="prov"){const ed=cats.length||has("admin");return head+`${provs().map(p=>`<button class="irow" data-prov="${p.id}"><span class="av sm" style="margin:0">${ini(p.n)}</span><div class="main"><div class="nm">${esc(p.n)}</div><div class="meta">${p.cats.map(c=>CATS[c].ico+" "+CATS[c].s).join(" · ")} · entrega ${p.lead||0} días${p.tel?" · "+esc(p.tel):""}${p.nota?" · "+esc(p.nota):""}${!p.tel&&!p.rif?` <span class="chip c-amb">completar datos</span>`:""}</div></div>›</button>`).join("")||`<div class="empty">Aún no hay proveedores registrados.</div>`}
+  if(sub==="prov"){const ed=mine.length||has("admin");return head+`${provs().map(p=>`<button class="irow" data-prov="${p.id}"><span class="av sm" style="margin:0">${ini(p.n)}</span><div class="main"><div class="nm">${esc(p.n)}</div><div class="meta">${p.cats.map(c=>CATS[c].ico+" "+CATS[c].s).join(" · ")} · entrega ${p.lead||0} días${p.tel?" · "+esc(p.tel):""}${p.nota?" · "+esc(p.nota):""}${!p.tel&&!p.rif?` <span class="chip c-amb">completar datos</span>`:""}</div></div>›</button>`).join("")||`<div class="empty">Aún no hay proveedores registrados.</div>`}
     ${ed?`<button class="btn sec full" data-act="provnew">＋ Nuevo proveedor</button>`:""}`}
-  const c=all.includes(UI.sub.comp)?UI.sub.comp:all[0];const ed=can.comp(c);const sg=sugeridos(c);const os=ocs().filter(o=>o.cat===c);
-  return head+`${all.length>1?`<div class="chips">${all.map(k=>`<button class="${k===c?"on":""}" data-sub="comp:${k}">${CATS[k].ico} ${CATS[k].s} <span>${esc(holders("c"+k).join(" · "))}</span></button>`).join("")}</div>`:`<div class="role" style="margin-bottom:10px">${CATS[c].ico} Compras de ${CATS[c].n.toLowerCase()}</div>`}
-  ${sg.length?`<div class="ocard" style="border-color:#f0b9b4;background:#fffafa"><div class="oh"><b>⚠️ ${sg.length} bajo colchón</b></div><div class="ol">${sg.map(r=>`${esc(r.m.n)}: hay ${nf(r.disp,1)} ${r.m.u}, mínimo ${nf(r.m.min,0)} → <b>pedir ${nf(r.q,0)} ${r.m.u}</b>`).join("<br>")}</div>${ed?`<button class="btn full" data-act="ocsug" data-cat="${c}">Crear orden con estos sugeridos</button>`:""}</div>`:`<div class="alert grn"><span>✓</span><div>Ningún material de ${CATS[c].s.toLowerCase()} está bajo el colchón.</div></div>`}
-  <div class="sec-t">Órdenes de compra</div>
-  ${os.map(o=>ocCard(o,ed)).join("")||`<div class="empty">Aún no hay órdenes.</div>`}
-  ${ed?`<button class="btn sec full" data-act="ocnew" data-cat="${c}">＋ Orden en blanco</button>`:""}`;
+  const k=CTABS.some(t=>t.k===UI.sub.comp)?UI.sub.comp:(mine[0]||CTABS[0]).k;const T=CTABS.find(t=>t.k===k);
+  const badge=t=>{const n=t.cats.reduce((a,c)=>a+sugeridos(c).length+ocs().filter(o=>o.cat===c&&(o.est==="borr"||atrasada(o))).length,0);return n?` <span class="cbad">${n}</span>`:""};
+  return head+`<div class="ctabs">${CTABS.map(t=>`<button class="${t.k===k?"on":""}" data-sub="comp:${t.k}"><span>${t.ico}</span>${t.n}${badge(t)}<small>${esc(t.cats.flatMap(c=>holders("c"+c)).filter((x,i,a)=>a.indexOf(x)===i).join(" · ")||"—")}</small></button>`).join("")}</div>
+  ${T.cats.map(c=>{const ed=can.comp(c);const sg=sugeridos(c);const os=ocs().filter(o=>o.cat===c);return `${T.cats.length>1?`<div class="sec-t">${CATS[c].ico} ${CATS[c].n}</div>`:""}
+  ${sg.length?`<div class="ocard" style="border-color:#f0b9b4;background:#fffafa"><div class="oh"><b>⚠️ ${sg.length} bajo colchón</b></div><div class="ol">${sg.map(r=>`${esc(r.m.n)}: hay ${nf(r.disp,1)} ${r.m.u}, mínimo ${nf(r.m.min,0)} → <b>pedir ${nf(r.q,0)} ${r.m.u}</b>`).join("<br>")}</div>${ed?`<button class="btn full" data-act="ocsug" data-cat="${c}">Crear orden con estos sugeridos</button>`:""}</div>`:`<div class="alert grn"><span>✓</span><div>Nada de ${CATS[c].n} está bajo el colchón.</div></div>`}
+  ${T.cats.length===1?`<div class="sec-t">Órdenes de compra</div>`:""}
+  ${os.map(o=>ocCard(o,ed)).join("")||`<div class="empty">Aún no hay órdenes de ${CATS[c].s.toLowerCase()}.</div>`}
+  ${ed?`<button class="btn sec full" data-act="ocnew" data-cat="${c}">＋ Orden de ${CATS[c].s.toLowerCase()}</button>`:`<div class="muted" style="margin:4px 2px 12px">Solo consulta: compra ${esc(holders("c"+c).join(" · ")||"—")}.</div>`}`}).join("")}`;
 }
 function ocCard(o,ed){const tot=o.lines.reduce((a,l)=>a+(+l.q||0)*(+l.p||0),0);const at=atrasada(o);const l=llega(o);
   const est=o.est==="borr"?["Borrador","c-amb"]:o.est==="env"?(at?["Atrasada","c-red"]:["En camino","c-blu"]):["Recibida","c-grn"];
