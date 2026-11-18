@@ -2048,6 +2048,22 @@ document.addEventListener("click",function(e){const b=e.target.closest("[data-sx
 const __suggest1=suggest;suggest=function(cod){return puedeReponer(cod)?__suggest1(cod):{}};
 document.addEventListener("input",function(e){const t=e.target;if(!t||!(t.dataset&&(t.dataset.sxv!==undefined||t.dataset.ex!==undefined)))return;try{const v=visitOf(UI.page.cod);if(v)v.invDone=true}catch(x){}},true);
 document.addEventListener("keydown",e=>{if(!SES&&LG.step==="pin"){if(/^\d$/.test(e.key))pressKey(e.key);else if(e.key==="Backspace")pressKey("del")}});
+/* ===== Mi cartera: Todos / Propios (Activos · Inactivos) según el maestro de clientes del sistema ===== */
+function propiosDe(v){const P=(window.__D&&window.__D.PROPIOS)||{};return P[v]||[]}
+function propiosCli(act){return propiosDe(S.vend).filter(x=>x[2]===act).map(x=>{const c=cli(x[0]);if(c)return c;
+  const m=masterOf(x[0]);return{cod:x[0],nombre:(m?m[1]:x[1]).toUpperCase(),dir:m?m[2]:"",tel:m?m[3]:"",cred:0,esp:false,facturas:[],master:true}})}
+const __ruta3=ruta3;ruta3=function(){const cv=UI.cv||"propios";const ca=UI.ca||"act";
+  const P=propiosDe(S.vend);const nA=P.filter(x=>x[2]===1).length,nI=P.length-nA;
+  const top=`<div class="seg" style="margin-bottom:10px"><button data-cv="todos" class="${cv==="todos"?"on":""}">Todos <span class="muted">${clients().length.toLocaleString("es-VE")}</span></button><button data-cv="propios" class="${cv==="propios"?"on":""}">Propios <span class="muted">${P.length}</span></button></div>`;
+  if(cv==="todos")return top+__ruta3();
+  const sub=`<div class="seg" style="margin-bottom:10px"><button data-ca="act" class="${ca==="act"?"on":""}">Activos <span class="muted">${nA}</span></button><button data-ca="inact" class="${ca==="inact"?"on":""}">Inactivos <span class="muted">${nI}</span></button></div>`;
+  const q=normT(UI.cq||"");const L=propiosCli(ca==="act"?1:0).filter(c=>!q||normT(c.nombre).includes(q)||c.cod.toLowerCase().includes(q));
+  return top+sub+`<div class="search"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="cq3" placeholder="Buscar en tus clientes" value="${esc(UI.cq||"")}" autocomplete="off"></div>
+  <div id="clist2">${P.length?cliCards(L):`<div class="empty">No tienes clientes asignados en el maestro del sistema.</div>`}</div>`};
+document.addEventListener("input",function(e){const t=e.target;if(!t||t.id!=="cq3")return;UI.cq=t.value;const q=normT(t.value);const box=$("#clist2");if(box)box.innerHTML=cliCards(propiosCli((UI.ca||"act")==="act"?1:0).filter(c=>!q||normT(c.nombre).includes(q)||c.cod.toLowerCase().includes(q)))},true);
+document.addEventListener("click",function(e){const t=e.target.closest("[data-cv],[data-ca]");if(!t||!SES)return;e.stopImmediatePropagation();
+  if(t.dataset.cv){UI.cv=t.dataset.cv}else{UI.ca=t.dataset.ca}render()},true);
+
 /* ===== Despacho desde la Planta (planta/): el vendedor ve su pedido despachado con el peso real y la factura ===== */
 function plantaSync(){try{
   if(!SES||SES.role!=="vend"||!S||!window.API_URL)return;
