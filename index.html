@@ -950,7 +950,7 @@ function home(){
 
 /* ---------- CLIENTES ---------- */
 /* "Por visitar" = clientes del rutero de hoy aún sin visita cerrada (sin rutero o sin ruta hoy: sus clientes propios activos) */
-function porVisitar(){let L=[];try{const h=hoyRuta();L=rutaDia(h.w,h.d).map(e=>e.c)}catch(e){}
+function porVisitar(){let L=[];try{const h=hoyRuta();L=rutaDia(h.w,h.d).map(e=>cli(e.c)||!/-\d+$/.test(e.c)?e.c:e.c.replace(/-\d+$/,""))}catch(e){}
   if(!L.length){try{L=propiosDe(S.vend).filter(x=>x[2]===1).map(x=>x[0])}catch(e){}}return new Set(L)}
 function cliPasa(c,f,q,PV){const v=visitOf(c.cod);const b=cxc(c);
   if(f==="pend"&&(!PV.has(c.cod)||(v&&v.closed)))return false;if(f==="vis"&&!(v&&v.closed))return false;if(f==="venc"&&!(b[1]+b[2]+b[3]+b[4]>0))return false;
