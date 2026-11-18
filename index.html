@@ -2054,11 +2054,12 @@ document.addEventListener("input",function(e){const t=e.target;if(!t||!(t.datase
 document.addEventListener("keydown",e=>{if(!SES&&LG.step==="pin"){if(/^\d$/.test(e.key))pressKey(e.key);else if(e.key==="Backspace")pressKey("del")}});
 /* ===== Mi cartera: Todos / Propios (Activos · Inactivos) según el maestro de clientes del sistema ===== */
 function propiosDe(v){const P=(window.__D&&window.__D.PROPIOS)||{};return P[v]||[]}
-function propiosCli(act){return propiosDe(S.vend).filter(x=>x[2]===act).map(x=>{const c=cli(x[0]);if(c)return c;
+function propiosCli(act){if(S.vend==="Oficina")return clients().filter(c=>(esActivo(c.cod)?1:0)===act);return propiosDe(S.vend).filter(x=>x[2]===act).map(x=>{const c=cli(x[0]);if(c)return c;
   const m=masterOf(x[0]);return{cod:x[0],nombre:(m?m[1]:x[1]).toUpperCase(),dir:m?m[2]:"",tel:m?m[3]:"",cred:0,esp:false,facturas:[],master:true}})}
-const __ruta3=ruta3;ruta3=function(){const cv=UI.cv||"propios";const ca=UI.ca||"act";
-  const P=propiosDe(S.vend);const nA=P.filter(x=>x[2]===1).length,nI=P.length-nA;
-  const top=`<div class="seg" style="margin-bottom:10px"><button data-cv="todos" class="${cv==="todos"?"on":""}">Todos <span class="muted">${clients().length.toLocaleString("es-VE")}</span></button><button data-cv="propios" class="${cv==="propios"?"on":""}">Propios <span class="muted">${P.length}</span></button></div>`;
+let _ACT=null;const esActivo=cod=>{if(!_ACT)_ACT=new Set((window.__D&&window.__D.ACTIVOS)||[]);return _ACT.has(cod)};
+const __ruta3=ruta3;ruta3=function(){const ofi=S.vend==="Oficina";const cv=ofi?"propios":(UI.cv||"propios");const ca=UI.ca||"act";
+  const P=ofi?clients().map(c=>[c.cod,c.nombre,esActivo(c.cod)?1:0]):propiosDe(S.vend);const nA=P.filter(x=>x[2]===1).length,nI=P.length-nA;
+  const top=ofi?"":`<div class="seg" style="margin-bottom:10px"><button data-cv="todos" class="${cv==="todos"?"on":""}">Todos <span class="muted">${clients().length.toLocaleString("es-VE")}</span></button><button data-cv="propios" class="${cv==="propios"?"on":""}">Propios <span class="muted">${P.length}</span></button></div>`;
   if(cv==="todos")return top+__ruta3();
   const sub=`<div class="seg" style="margin-bottom:10px"><button data-ca="act" class="${ca==="act"?"on":""}">Activos <span class="muted">${nA}</span></button><button data-ca="inact" class="${ca==="inact"?"on":""}">Inactivos <span class="muted">${nI}</span></button></div>`;
   const q=normT(UI.cq||"");const L=propiosCli(ca==="act"?1:0).filter(c=>!q||normT(c.nombre).includes(q)||c.cod.toLowerCase().includes(q));
