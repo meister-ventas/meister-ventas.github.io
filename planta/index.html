@@ -347,6 +347,10 @@ body:has(#mdl) .bkpill{display:none}
 .ctabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}.ctabs button{background:#fff;border:1px solid var(--line);border-radius:14px;padding:9px 6px;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;line-height:1.2}
 .ctabs button span:first-child{font-size:20px}.ctabs button small{font-weight:400;color:var(--mut);font-size:11px}.ctabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}.ctabs button.on small{color:rgba(255,255,255,.75)}
 .cbad{display:inline-block;background:var(--red);color:#fff;border-radius:99px;font-size:10.5px;padding:1px 6px;margin-left:3px}
+.pccrow{border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin-bottom:6px;background:#fff}.pccrow small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+.pccrow.ok{background:#f3faf3;border-color:#cfe8cf}.pccrow.bad{background:#fff6f5;border-color:#f0c4c4}
+.pccf{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}.pccf input[type=number]{width:110px}.pccf select{flex:1;min-width:160px}.pccf input:not([type]){flex:1;min-width:160px}
+.pccbar{font-size:12.5px;margin:4px 0 8px}
 
 </style>
 </head>
@@ -425,6 +429,7 @@ const addD = (s,n) => { const d = new Date(s+"T12:00:00"); d.setDate(d.getDate()
 const diffD = (a,b) => Math.round((new Date(a+"T12:00:00")-new Date(b+"T12:00:00"))/864e5);
 const DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
 const dlab = s => { if(!s) return ""; const t=today(); if(s===t) return "hoy"; if(s===addD(t,1)) return "mañana"; if(s===addD(t,-1)) return "ayer"; const d=new Date(s+"T12:00:00"); return DIAS[d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1); };
+const deld = s => { const d=dlab(s); return /^(hoy|mañana|ayer)$/.test(d)?"de "+d:"del "+d; };
 const fcorta = s => { if(!s) return "—"; const d=new Date(s+"T12:00:00"); return pad(d.getDate())+"/"+pad(d.getMonth()+1)+"/"+String(d.getFullYear()).slice(2); };
 const hhmm = t => { const d=new Date(t); return pad(d.getHours())+":"+pad(d.getMinutes()); };
 const nf = (n,d=1) => (Math.round((+n||0)*Math.pow(10,d))/Math.pow(10,d)).toLocaleString("es-VE",{maximumFractionDigits:d});
@@ -450,8 +455,8 @@ const FAMS_ALL = FAMS.concat(["Quesos","Subproductos"]);
 const FAMC = {Salchichas:"#b3261e",Parrillera:"#a86200",Jamones:"#7b684d",Ahumados:"#5a3e2b",Especialidades:"#245f9e",Frescos:"#c4502a",Quesos:"#8a7a2a",Subproductos:"#6d6863"};
 
 /* ---------- estado compartido ---------- */
-const COLLS = ["items","rec","mov","ped","pst","plan","oc","prov","rut"];
-function blankDB(ep){return{epoch:ep||0,items:{},rec:{},mov:{},ped:{},pst:{},plan:{},oc:{},prov:{},rut:{},cfg:{_t:0}}}
+const COLLS = ["items","rec","mov","ped","pst","plan","oc","prov","rut","cav"];
+function blankDB(ep){return{epoch:ep||0,items:{},rec:{},mov:{},ped:{},pst:{},plan:{},oc:{},prov:{},rut:{},cav:{},cfg:{_t:0}}}
 function fixDB(d){COLLS.forEach(k=>{if(!d[k])d[k]={}});if(!d.cfg)d.cfg={_t:0};d.epoch=d.epoch||0;return d}
 let SES = LS.get(SKEY,null);
 const isTest = () => !!SES && SES.u==="prueba";
@@ -468,7 +473,7 @@ function setCfg(k,v){DB.cfg[k]=v;DB.cfg._t=Date.now()}
 const EQ = () => DB.cfg.eq || DEF_EQ;
 const COBD = () => DB.cfg.cobDias != null ? DB.cfg.cobDias : 2;
 const CAPSEM = () => DB.cfg.capSem || 8000;
-const QCD = {mpPh:[5.3,6.5],mpT:7,mpTc:-12,prPh:[5.4,6.5],prT:6,merma:3};
+const QCD = {mpPh:[5.3,6.5],mpT:6,mpTmin:0,mpTc:-18,prPh:[5.4,6.5],prT:6,merma:3};
 const QCF = () => Object.assign({},QCD,DB.cfg.qc||{});
 const NEXTLOTE = () => DB.cfg.nextLote || 175;
 const fx = n => String(n).replace(".",",");
@@ -684,6 +689,8 @@ function myTasks(S){
   if(has("cap")){by("apro").forEach(p=>t.push({tab:"prod",i:"▶️",c:"amb",t:"Iniciar producción del "+dlab(p.fecha),s:nf(planKg(p),0)+" kg aprobados"}));by("proc").forEach(p=>t.push({tab:"prod",i:"🏁",c:"blu",t:"Cerrar el lote "+(p.lote||""),s:"Registra masa, horno y empacado"}))}
   if(has("empq"))planes().filter(p=>p.est==="emp").forEach(p=>t.unshift({tab:"empq",i:"🏷️",c:"red",t:"Empacar el lote "+p.lote,s:"Pesar lo recibido, bolsas y etiquetas"}));
   if((has("cap")||has("cal"))&&planes().some(p=>p.est==="proc"||(p.est!=="borr"&&p.fecha===today()))&&!DB.rut[today()])t.push({act:"rutadd",i:"🌡️",c:"amb",t:"Registrar la rutina variable de hoy",s:"pH y temperatura de MP y producto"});
+  if(has("cal")||has("almmp")||has("almpt")){const r=DB.cav[today()];const tarde=new Date().getHours()>=12;const n=r?r.l.filter(x=>tarde?new Date(x.ts).getHours()>=12:true).length:0;if(!n)t.push({tab:"cal",sub:"calv:cav",i:"❄️",c:"amb",t:"Registrar temperatura de cavas ("+(tarde?"tarde":"mañana")+")",s:"PCC 2 y 7"})}
+  if(has("cap"))planes().filter(p=>p.est==="apro"&&lineasPlan(p).includes("pie")).forEach(p=>{let x=p.fecha,k=0;while(k<3){x=addD(x,-1);const w=new Date(x+"T12:00:00").getDay();if(w>0&&w<6)k++}if(today()>=x)t.unshift({tab:"prod",i:"🥩",c:"red",t:"Iniciar línea de piezas (descongelar) del plan del "+dlab(p.fecha),s:"Día 1 de 4: la cocción es el "+dlab(p.fecha)})});
   if(has("cal")){const lp=planes().filter(p=>p.est==="cerr"&&p.real&&!p.lib&&!p.ret);if(lp.length)t.unshift({tab:"cal",i:"🔬",c:"red",t:`Liberar ${lp.length} ${lp.length>1?"lotes":"lote"} de producción`,s:"No se pueden despachar hasta que los liberes"});
     const mq=mpFuera();if(mq.length)t.unshift({tab:"cal",i:"⚠️",c:"red",t:`Decidir ${mq.length} recepción${mq.length>1?"es":""} fuera de rango`,s:mq.map(x=>MP(x.l.mp).n).slice(0,3).join(", ")})}
   if(has("receta")){const pr=DATA.F.filter(b=>{const f=F(b.id);return !f.ok&&DB.rec[b.id]&&!DB.rec[b.id]._del}).length;const sv=DATA.F.filter(b=>!F(b.id).ok).length;if(pr)t.push({tab:"exp",sub:"exp:coef",i:"📖",c:"amb",t:`${pr} ${pr>1?"recetas propuestas":"receta propuesta"} por validar`,s:"Cambios de Leyci o del planificador"});else if(sv)t.push({tab:"exp",sub:"exp:coef",i:"📖",c:"blu",t:`${sv} recetas sin validar`,s:"Coeficientes de referencia"})}
@@ -762,7 +769,7 @@ function planDia(){
   const lines=Object.entries(cur.lines).filter(([f,k])=>k>0||ed);const last=(cur.hist||[]).slice(-1)[0];
   const steps=[["Arma",holders("plan")],["Capacidad",holders("cap")],["Aprueba",holders("apro")]];
   const idx=["borr","rev","cap","apro","proc","cerr"].indexOf(cur.est);
-  return `<div class="ocard" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="muted">Plan ${esc(cur.num||"")}${cur.sem?" · semana "+esc(cur.sem):""}</div><b style="font-size:18px">Producción del ${dlab(cur.fecha)}</b></div><span class="chip ${est[1]}">${est[0]}</span></div>
+  return `<div class="ocard" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="muted">Plan ${esc(cur.num||"")}${cur.sem?" · semana "+esc(cur.sem):""}</div><b style="font-size:18px">Producción ${deld(cur.fecha)}</b></div><span class="chip ${est[1]}">${est[0]}</span></div>
   <div class="vsteps" style="padding:0 0 10px">${steps.map(([n,w],i)=>`<button class="${idx>i?"ok":idx===i?"on":""}" style="flex-direction:column;gap:1px"><span><i>${idx>i?"✓":i+1}</i> ${n}</span><small style="font-weight:400;font-size:10.5px;opacity:.8">${esc(w.join(" · ")||"—")}</small></button>`).join("")}</div>
   ${last&&last.nota&&cur.est==="borr"?`<div class="alert red"><span>↩️</span><div><b>Devuelto por ${esc(nameOf(last.by))}:</b> ${esc(last.nota)}</div></div>`:""}
   ${ed?`<label class="f" style="margin-top:0">Fecha de producción</label><input type="date" id="pfecha" value="${cur.fecha}" style="margin-bottom:10px">`:""}
@@ -808,7 +815,7 @@ function expView(){
   if(!cur) return head+`<div class="empty">No hay plan abierto. Arma uno en Plan de producción.</div><button class="btn full" data-tab="plan">Ir al Plan →</button>`;
   const t=expTable(cur);const fal=t.filter(r=>r.falta>0);const costo=t.reduce((a,r)=>a+r.n*r.m.cost,0);
   const canGen=has("plan")||has("ccar")||has("cnoc")||has("cemp");
-  return head+`<div class="ocard"><div class="oh"><div><div class="muted">${esc(cur.num||"")} · ${PEST[cur.est][0]}</div><b>Plan del ${dlab(cur.fecha)} · ${nf(planKg(cur),0)} kg</b></div>${ps.length>1?`<button class="btn sec sm" data-act="pickplan">Cambiar</button>`:""}</div></div>
+  return head+`<div class="ocard"><div class="oh"><div><div class="muted">${esc(cur.num||"")} · ${PEST[cur.est][0]}</div><b>Plan ${deld(cur.fecha)} · ${nf(planKg(cur),0)} kg</b></div>${ps.length>1?`<button class="btn sec sm" data-act="pickplan">Cambiar</button>`:""}</div></div>
   <div class="mini"><div><b>${t.filter(r=>r.n>0).length}</b><span>materiales</span></div><div><b class="${fal.length?"neg":"pos"}">${fal.length}</b><span>faltan</span></div><div><b>${usd0(costo)}</b><span>costo estándar</span></div></div>
   ${MPC.map(c=>{const rows=t.filter(r=>r.m.cat===c);if(!rows.length)return "";return `<div class="sec-t">${CATS[c].ico} ${CATS[c].n} · compra ${esc(holders("c"+c).join(" · ")||"—")}</div>
    <div class="card scroll" style="padding:8px 10px"><table class="xt"><thead><tr><th>Material</th><th class="n">Necesito</th><th class="n">Disp.</th><th class="n">Falta</th><th class="n">Comprar</th></tr></thead><tbody>
@@ -907,7 +914,7 @@ function genOC(){const cur=curPlan(true);if(!cur)return;
 function recView(){
   const env=ocs().filter(o=>o.est==="env").sort((a,b)=>(llega(a)||"").localeCompare(llega(b)||""));const rec=ocs().filter(o=>o.est==="rec").slice(0,8);const ed=can.rec();
   return `<div class="mini"><div><b>${env.length}</b><span>por recibir</span></div><div><b class="${env.some(atrasada)?"neg":""}">${env.filter(atrasada).length}</b><span>atrasadas</span></div><div><b>${rec.filter(o=>iso(o.rec.ts)===today()).length}</b><span>recibidas hoy</span></div></div>
-  <div class="alert blu"><span>🔎</span><div>Pesa o cuenta lo que llega. En cárnica mide <b>pH (${fx(QCF().mpPh[0])}–${fx(QCF().mpPh[1])})</b> y <b>temperatura (≤ ${fx(QCF().mpT)} °C refrigerado, ≤ ${fx(QCF().mpTc)} °C congelado)</b>. Lo que no cumple se rechaza o queda marcado.</div></div>
+  <div class="alert blu"><span>🔎</span><div>Pesa o cuenta lo que llega. En cárnica mide <b>pH (${fx(QCF().mpPh[0])}–${fx(QCF().mpPh[1])})</b> y <b>temperatura (refrigerado ${fx(QCF().mpTmin??0)} a ${fx(QCF().mpT)} °C, congelado ≤ ${fx(QCF().mpTc)} °C · PCC 1)</b>. Lo que no cumple se rechaza o queda marcado.</div></div>
   ${env.map(o=>`<div class="ocard"><div class="oh"><div><b>${CATS[o.cat].ico} ${esc(o.num)}</b> <span class="muted">${esc(provName(o.prov)||"sin proveedor")}</span><div class="muted">${CATS[o.cat].n} · llega ~${dlab(llega(o))}</div></div><span class="chip ${atrasada(o)?"c-red":"c-blu"}">${atrasada(o)?"Atrasada":"En camino"}</span></div>
     <div class="ol">${o.lines.map(l=>`${nf(l.q,1)} ${MP(l.mp).u} · ${esc(MP(l.mp).n)}`).join("<br>")}</div>
     ${ed?`<button class="btn full" data-act="ocrec" data-id="${o.id}">📥 Recibir mercancía</button>`:""}</div>`).join("")||`<div class="empty">No hay órdenes en camino.</div>`}
@@ -926,10 +933,11 @@ function ocRecSheet(id){const o=DB.oc[id];const car=o.cat==="car";openModal(`<di
 function prodView(){
   const ed=has("cap");const act=planes().filter(p=>p.est==="apro"||p.est==="proc");const cer=planes().filter(p=>p.est==="cerr").slice(0,6);
   const pend=planes().filter(p=>["borr","rev","cap"].includes(p.est));const pe=planes().filter(p=>p.est==="emp");
-  return `${(has("cap")||has("cal"))?`<button class="btn sec full" data-act="rutadd" style="margin-bottom:10px">🌡️ Rutina variable · pH y temperatura</button>`:""}${pe.length?`<div class="alert blu"><span>🏷️</span><div>${pe.length} ${pe.length>1?"lotes esperan":"lote espera"} en Empaque: ${pe.map(p=>"Lote "+esc(p.lote)).join(", ")}.</div></div>`:""}${act.length?act.map(p=>{const t=expTable(p).filter(r=>r.falta>0);return `<div class="ocard"><div class="oh"><div><div class="muted">${esc(p.num)}${p.lote?" · Lote "+esc(p.lote):""}</div><b>Producción del ${dlab(p.fecha)} · ${nf(planKg(p),0)} kg</b></div><span class="chip ${PEST[p.est][1]}">${PEST[p.est][0]}</span></div>
+  return `${(has("cap")||has("cal"))?`<button class="btn sec full" data-act="rutadd" style="margin-bottom:10px">🌡️ Rutina variable · pH y temperatura</button>`:""}${pe.length?`<div class="alert blu"><span>🏷️</span><div>${pe.length} ${pe.length>1?"lotes esperan":"lote espera"} en Empaque: ${pe.map(p=>"Lote "+esc(p.lote)).join(", ")}.</div></div>`:""}${act.length?act.map(p=>{const t=expTable(p).filter(r=>r.falta>0);return `<div class="ocard"><div class="oh"><div><div class="muted">${esc(p.num)}${p.lote?" · Lote "+esc(p.lote):""}</div><b>Producción ${deld(p.fecha)} · ${nf(planKg(p),0)} kg</b></div><span class="chip ${PEST[p.est][1]}">${PEST[p.est][0]}</span></div>
     <div class="ol">${Object.entries(p.lines).filter(([f,k])=>k>0).map(([f,k])=>`${nf(k,0)} kg · ${esc(F(f).n)}`).join("<br>")}</div>
     ${p.est==="apro"&&t.length?`<div class="alert amb"><span>⚠️</span><div>Faltan ${t.length} materiales: ${t.slice(0,4).map(r=>esc(r.m.n)).join(", ")}${t.length>4?"…":""}. Puedes iniciar si ya llegaron.</div></div>`:""}
-    ${ed?(p.est==="apro"?`<button class="btn full big" data-act="pstart" data-id="${p.id}">▶️ Iniciar producción</button>`:`<button class="btn full big" data-act="pclose" data-id="${p.id}">🏁 Cerrar y registrar kg reales</button>`):`<div class="muted">El jefe de producción inicia y cierra el lote.</div>`}</div>`}).join(""):`<div class="empty">No hay producción aprobada.</div>`}
+    ${p.est==="apro"?piezasAgenda(p):""}${p.est==="proc"?(()=>{const E=pccEstado(p);return `<div class="pccbar"><div><b>📋 Hoja de proceso</b> · ${E.d}/${E.n} etapas · ${esc(etapaProc(p))}${E.bad?` · <span class="neg">${E.bad} fuera de límite</span>`:""}</div><div class="sbar"><span style="width:${E.n?E.d/E.n*100:0}%;background:${E.bad?"var(--red)":"var(--grn)"}"></span></div></div><button class="btn sec full" data-act="pcc" data-id="${p.id}" style="margin-bottom:8px">📋 Abrir hoja de proceso (PCC)</button>`})():""}
+    ${ed?(p.est==="apro"?`<button class="btn full big" data-act="pstart" data-id="${p.id}">▶️ Iniciar producción</button>`:(()=>{const E=pccEstado(p);return E.falta.length?`<button class="btn full big" disabled>🏁 Cerrar (faltan PCC: ${esc(E.falta.map(x=>x.split(" · ")[0]).join(", "))})</button>`:`<button class="btn full big" data-act="pclose" data-id="${p.id}">🏁 Cerrar y pasar a empaque</button>`})()):`<div class="muted">El jefe de producción inicia y cierra el lote.</div>`}</div>`}).join(""):`<div class="empty">No hay producción aprobada.</div>`}
   ${pend.length?`<div class="alert amb"><span>⏳</span><div>${pend.length} ${pend.length>1?"planes":"plan"} en camino: ${pend.map(p=>dlab(p.fecha)+" ("+PEST[p.est][0].toLowerCase()+")").join(", ")}.</div></div>`:""}
   ${cer.length?`<div class="sec-t">Lotes cerrados</div>${cer.map(p=>{const pk=planKg(p),rk=realKg(p);const R=Object.values((p.real&&p.real.f)||{});const cs=R.reduce((a,x)=>a+(x.cstd||0)*(x.kg||0),0),cr=R.reduce((a,x)=>a+(x.creal||0)*(x.kg||0),0);
     return `<button class="irow" data-traz="${esc(p.lote||"")}"><div class="main"><div class="nm">${dlab(p.fecha)} · ${esc(p.lote||p.num)}</div><div class="meta">Plan ${nf(pk,0)} · real ${nf(rk,0)} kg · costo real ${usd0(cr)} vs estándar ${usd0(cs)}</div></div><div class="amt"><b class="${rk<pk*0.97?"neg":"pos"}">${pk?Math.round(rk/pk*100):0}%</b>cumplimiento</div></button>`}).join("")}`:""}`;
@@ -962,6 +970,7 @@ function empSheet(id){const p=DB.plan[id];const dem=demandaSku();const fs=Object
     <div style="display:flex;gap:8px"><div style="flex:1.3"><label class="f">Medida de bolsa</label><select data-ebol="${fid}">${DATA.BAGS.map(b=>`<option value="${b}" ${main&&main.bolsa===b?"selected":""}>${esc(MP(b).n.replace("Bolsa ",""))}</option>`).join("")}</select></div><div style="flex:1"><label class="f">Bolsas</label><input type="number" data-enb="${fid}" value="${nb}"></div><div style="flex:1"><label class="f">Etiquetas</label><input type="number" data-eet="${fid}" value="${nb}"></div></div>
     <input data-eobs="${fid}" placeholder="Novedades (tripa rota, etiquetas dañadas…)" style="margin-top:8px">
     <div class="muted" data-esum="${fid}" style="margin-top:6px"></div></div>`}).join("")}
+  <label class="chk" style="border:0;margin-top:8px"><input type="checkbox" id="e_vac" checked> XIV · Sellado al vacío hermético, sin fugas</label><label class="chk" style="border:0"><input type="checkbox" id="e_cod" checked> XV · Lote ${esc(p.lote||"")} y vencimiento impresos y legibles</label>
   <button class="btn full big" style="margin-top:12px" data-act="empok" data-id="${id}">✅ Registrar empaque · pasa a Calidad</button>`);fs.forEach(([f])=>esum(id,f))}
 function esum(id,fid){const box=document.querySelector(`[data-esum="${fid}"]`);if(!box)return;const p=DB.plan[id];const ent=(p.real.f[fid]||{}).horno||0;const rec=num(($(`[data-erec="${fid}"]`)||{}).value)||0;
   const fin=$$(`[data-rs^="${fid}|"]`).reduce((a,i)=>a+(num(i.value)||0)*PTD[i.dataset.rs.split("|")[1]].kgu,0);const m=ent?(ent-rec)/ent:0;const al=m*100>QCF().merma;
@@ -997,6 +1006,7 @@ function trazDoc(p){const rows=trazRows(p);const ru=DB.rut[p.fecha];const R=Obje
   <table class="tdt"><thead><tr><th>Tipo de ingrediente</th><th>Proveedor</th><th>Fecha de recepción</th><th>Lote MP</th><th>Cantidad</th><th>Tipo de producto</th><th>Tripa utilizada</th><th>Condición de almacenamiento</th><th>Fecha de empaque</th></tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.cond&&/fuera/.test(r.cond)?"warn":""}"><td>${esc(r.tipo)}</td><td>${esc(r.prov)}</td><td>${r.frec}</td><td>${esc(r.lote)}</td><td>${nf(r.q,2)} ${r.u}</td><td>${esc(r.prods.join(" / "))}</td><td>${esc(r.tripa)}</td><td>${esc(r.cond)}</td><td>${r.fe}</td></tr>`).join("")||`<tr><td colspan="9">Sin consumos registrados</td></tr>`}</tbody></table>
   ${(p.real.mlots||[]).length?`<div class="tdsec"><b>Carne por batch</b></div><table class="tdt"><thead><tr><th>Producto</th><th>Carne</th><th>Proveedor</th><th>Lote del proveedor</th><th>Fecha de recepción</th><th>Kg</th></tr></thead><tbody>${p.real.mlots.map(x=>{const o=origenLote(x.mp,x.lote);return `<tr><td>${esc(F(x.fid).n)}</td><td>${esc(MP(x.mp).n)}</td><td>${esc(o.prov)}</td><td>${esc(x.lote)}</td><td>${o.f?fcorta(o.f):"—"}</td><td>${nf(x.q,1)}</td></tr>`}).join("")}</tbody></table>`:""}
+  ${p.pcc?`<div class="tdsec"><b>Hoja de proceso (PCC)</b>${p.epp?" · EPP verificado por "+esc(nameOf(p.epp.by)):""}</div><table class="tdt"><thead><tr><th>Etapa</th><th>Registro</th><th>Límite</th><th>Conforme</th><th>Acción correctiva</th><th>Hora</th><th>Responsable</th></tr></thead><tbody>${lineasPlan(p).flatMap(l=>PCCL[l].st.map(st=>{const r=(p.pcc[l]||{})[st.k];if(!r)return `<tr class="warn"><td>${esc(st.n)}</td><td colspan="6">Sin registro</td></tr>`;const ok=pccVal(st,r);return `<tr class="${ok?"":"warn"}"><td>${esc(st.n)}</td><td>${esc([r.sel,(st.f||[]).filter(x=>r.v[x.k]!=null).map(x=>x.n+": "+fx(r.v[x.k])).join(" · ")].filter(Boolean).join(" · ")||"✓")}</td><td>${esc((st.f||[]).filter(x=>x.min!=null||x.max!=null).map(x=>(x.min!=null?"≥ "+x.min:"")+(x.max!=null?" ≤ "+x.max:"")+" °C").join(" "))}</td><td>${ok?"Sí":"No"}</td><td>${esc(r.acc||"")}</td><td>${hhmm(r.ts)} ${fcorta(iso(r.ts))}</td><td>${esc(nameOf(r.by))}</td></tr>`})).join("")}</tbody></table>`:""}
   <div class="tdsec"><b>Producto elaborado</b> · ${R.map(([f,x])=>`${esc(F(f).n)}: masa ${nf(x.masa,1)} → entregado ${nf(x.horno,1)} → recibido ${x.rec!=null?nf(x.rec,1):"—"} → empacado ${x.kg!=null?nf(x.kg,1):"—"} kg`).join(" · ")}</div>
   ${ru?`<div class="tdsec"><b>Rutina variable del día</b> · MP: ${ru.mp.map(x=>`${esc(x.t)} pH ${fx(x.ph)} / ${fx(x.temp)} °C`).join(", ")||"—"} · Producto: ${ru.pr.map(x=>`${esc(x.t)} pH ${fx(x.ph)} / ${fx(x.temp)} °C`).join(", ")||"—"}</div>`:""}
   <div class="tdsec"><b>Observaciones:</b> ${obs.map(esc).join(" · ")}</div></div>`}
@@ -1018,7 +1028,7 @@ function rutSheet(){const mpOpts=["Res fina","Res gruesa","CDM"].concat(DATA.MP.
   <div class="sec-t">Producto elaborado</div>${[0,1,2,3,4,5].map(i=>line("pr",i)).join("")}
   <label class="f">Observación</label><input id="ru_obs" placeholder="Ej. el chorizo de ajo sale con textura no deseada">
   <button class="btn full big" style="margin-top:12px" data-act="rutsave">Guardar mediciones</button>`)}
-function calTabs(){const v=UI.sub.calv||"lot";return `<div class="seg"><button class="${v==="lot"?"on":""}" data-sub="calv:lot">Lotes y MP</button><button class="${v==="rut"?"on":""}" data-sub="calv:rut">🌡️ Rutina variable</button></div>`}
+function calTabs(){const v=UI.sub.calv||"lot";return `<div class="seg"><button class="${v==="lot"?"on":""}" data-sub="calv:lot">Lotes y MP</button><button class="${v==="rut"?"on":""}" data-sub="calv:rut">🌡️ Rutina</button><button class="${v==="cav"?"on":""}" data-sub="calv:cav">❄️ Cavas</button></div>`}
 
 /* ---------- 9 · despacho ---------- */
 function puedeDesp(o){return o.st!=="aprobacion"&&o.items.every(i=>!PT(i.sku)||stockLibre("PT:"+i.sku)>=i.q-1e-6)}
@@ -1037,6 +1047,7 @@ function despSheet(o){openModal(`<div class="grab"></div><h3>Despachar ${esc(o.i
   <div style="margin-top:8px">${o.items.map((i,x)=>{const p=PT(i.sku);if(!p)return "";const L=lotsOf("PT:"+i.sku).filter(l=>libre("PT:"+i.sku,l));return `<div class="qrow"><div class="main">${esc(p.n)}${p.pres==="auto"?" (paq.)":""}<small>Pedido ${nf(i.q,2)} ${p.u} · sale del lote ${esc((L[0]||{}).lote||"—")}${L[0]&&L[0].vence?" (vence "+fcorta(L[0].vence)+")":""}</small></div><input type="number" step="any" inputmode="decimal" data-dq="${x}" value="${i.q}"><span class="muted" style="width:28px">${p.u}</span></div>`}).join("")}</div>
   <div class="muted" style="margin-top:4px">En los productos al peso escribe el <b>peso real</b> de la balanza.</div>
   <div style="display:flex;gap:8px"><div style="flex:1"><label class="f">Nº de factura</label><input id="d_fac" placeholder="Sistema administrativo"></div><div style="flex:1"><label class="f">Nota de entrega</label><input id="d_guia" placeholder="NE-…"></div></div>
+  <div style="display:flex;gap:8px"><div style="flex:1"><label class="f">T del camión °C (PCC 8)</label><input id="d_tc" type="number" step="0.1" inputmode="decimal" placeholder="≤ 5"></div><div style="flex:1;display:flex;align-items:flex-end"><label class="chk" style="border:0"><input type="checkbox" id="d_ref" checked> Transporte refrigerado</label></div></div>
   <div style="display:flex;gap:8px;margin-top:14px"><button class="btn sec" style="flex:1" data-act="x">Cancelar</button><button class="btn" style="flex:1.4" data-act="despok" data-k="${esc(o.key)}">🚚 Despachar</button></div>`)}
 
 /* ---------- 10 · balance ---------- */
@@ -1177,7 +1188,7 @@ document.addEventListener("click",e=>{
     for(let i=0;i<o.lines.length;i++){const rj=num($(`[data-rj="${i}"]`).value)||0;if(rj>0&&!$(`[data-rmot="${i}"]`).value.trim())return toast("Escribe el motivo del rechazo de "+MP(o.lines[i].mp).n)}
     o.lines.forEach((l,i)=>{const q=num($(`[data-rq="${i}"]`).value)||0;const rj=num($(`[data-rj="${i}"]`).value)||0;const acc=Math.max(0,q-rj);
       const lote=$(`[data-rl="${i}"]`).value.trim()||(o.num+"-"+(i+1));const vence=$(`[data-rv="${i}"]`).value||null;
-      let qc="";const ph=$(`[data-rph="${i}"]`),tp=$(`[data-rtmp="${i}"]`);if(ph&&tp){const pv=num(ph.value),tv=num(tp.value);if(pv!=null||tv!=null){const Q=QCF();const cg=!!($(`[data-rcong="${i}"]`)||{}).value;l.cong=cg;const okph=pv==null||(pv>=Q.mpPh[0]&&pv<=Q.mpPh[1]);const okt=tv==null||tv<=(cg?Q.mpTc:Q.mpT);l.ph=pv;l.temp=tv;l.qc=okph&&okt?"ok":"mal";if(l.qc==="mal")mal++;qc=[pv!=null?"pH "+pv:"",tv!=null?tv+" °C":""].filter(Boolean).join(" · ")}}
+      let qc="";const ph=$(`[data-rph="${i}"]`),tp=$(`[data-rtmp="${i}"]`);if(ph&&tp){const pv=num(ph.value),tv=num(tp.value);if(pv!=null||tv!=null){const Q=QCF();const cg=!!($(`[data-rcong="${i}"]`)||{}).value;l.cong=cg;const okph=pv==null||(pv>=Q.mpPh[0]&&pv<=Q.mpPh[1]);const okt=tv==null||(cg?tv<=Q.mpTc:(tv>=(Q.mpTmin??0)&&tv<=Q.mpT));l.ph=pv;l.temp=tv;l.qc=okph&&okt?"ok":"mal";if(l.qc==="mal")mal++;qc=[pv!=null?"pH "+pv:"",tv!=null?tv+" °C":""].filter(Boolean).join(" · ")}}
       l.rq=acc;l.rej=rj;l.mot=$(`[data-rmot="${i}"]`).value.trim();l.lote=lote;l.vence=vence;
       if(acc)addMov(l.mp,acc,"compra",o.num,doc,lote,vence,{p:l.p,qc})});
     o.est="rec";o.rec={ts:Date.now(),by:SES.u,doc};put("oc",o);closeModal();track("compra_recibida",{cat:o.cat,fuera_rango:mal});commit();toast(mal?"Recibido · "+mal+" fuera de rango (quedó marcado)":"Recepción registrada · inventario actualizado");break}
@@ -1187,8 +1198,9 @@ document.addEventListener("click",e=>{
   case"provdel":{const p=DB.prov[UI.pv.id];p._del=1;put("prov",p);closeModal();commit();break}
   case"pstart":{const p=DB.plan[d.id];const ms=PEOPLE.filter(x=>!x.test&&(rolesOf(x.id).includes("receta")||rolesOf(x.id).includes("cap")));openModal(`<div class="grab"></div><h3>Iniciar producción</h3><div class="muted">${dlab(p.fecha)} · ${nf(planKg(p),0)} kg</div>
     <div style="display:flex;gap:8px"><div style="flex:1"><label class="f">Nº de lote</label><input id="ps_l" type="number" value="${NEXTLOTE()}"></div><div style="flex:1.6"><label class="f">Maestro charcutero en la cocina</label><select id="ps_m">${ms.map(x=>`<option>${esc(x.n)}</option>`).join("")}</select></div></div>
-    <button class="btn full big" style="margin-top:12px" data-act="pstartok" data-id="${p.id}">▶️ Iniciar lote</button>`);break}
-  case"pstartok":{const p=DB.plan[d.id];const n=Math.round(num($("#ps_l").value)||NEXTLOTE());if(planes().some(x=>x.lote===String(n))&&!confirm("El lote "+n+" ya existe. ¿Usarlo igual?"))return;planHist(p,"proc");p.lote=String(n);p.maestro=$("#ps_m").value;put("plan",p);setCfg("nextLote",n+1);closeModal();track("produccion_iniciada");commit();toast("Producción iniciada · lote "+p.lote);break}
+    <div class="sec-t">EPP del personal (obligatorio)</div>${["Mascarilla / tapabocas","Guantes de protección","Lentes de seguridad","Gorro / cofia","Botas de seguridad"].map(e=>`<label class="chk" style="border:0;padding:4px 0"><input type="checkbox" data-epp> ${e}</label>`).join("")}
+    ${piezasAgenda(p)}<button class="btn full big" style="margin-top:12px" data-act="pstartok" data-id="${p.id}">▶️ Iniciar lote</button>`);break}
+  case"pstartok":{const p=DB.plan[d.id];if($$("[data-epp]").some(x=>!x.checked))return toast("Verifica todo el EPP antes de iniciar");p.epp={ts:Date.now(),by:SES.u};const n=Math.round(num($("#ps_l").value)||NEXTLOTE());if(planes().some(x=>x.lote===String(n))&&!confirm("El lote "+n+" ya existe. ¿Usarlo igual?"))return;planHist(p,"proc");p.lote=String(n);p.maestro=$("#ps_m").value;put("plan",p);setCfg("nextLote",n+1);closeModal();track("produccion_iniciada");commit();toast("Producción iniciada · lote "+p.lote);break}
   case"pclose":closeSheet(d.id);break;
   case"pcloseok":{const p=DB.plan[d.id];const R={};
     Object.keys(p.lines).filter(f=>p.lines[f]>0).forEach(fid=>{R[fid]={masa:num($(`[data-rmasa="${fid}"]`).value)||0,horno:num($(`[data-rhor="${fid}"]`).value)||0}});
@@ -1200,7 +1212,7 @@ document.addEventListener("click",e=>{
     const obs=$("#pc_obs").value;planHist(p,"emp",obs);p.real={f:R,cond,mlots,ts:Date.now(),by:SES.u,obs};put("plan",p);closeModal();
     track("produccion_cerrada",{plan_kg:planKg(p),entregado:Object.values(R).reduce((a,x)=>a+x.horno,0)});commit();toast("Producción cerrada · pasa a Empaque");break}
   case"emp":empSheet(d.id);break;
-  case"empok":{const p=DB.plan[d.id];const Q=QCF();let alertas=0;
+  case"empok":{const p=DB.plan[d.id];const Q=QCF();let alertas=0;if(!$("#e_vac").checked||!$("#e_cod").checked){if(!confirm("Sellado o codificación sin verificar. ¿Registrar igual? Calidad lo verá."))return}p.empChk={vac:$("#e_vac").checked,cod:$("#e_cod").checked};
     for(const [fid,x] of Object.entries(p.real.f)){const split={};$$(`[data-rs^="${fid}|"]`).forEach(i=>split[i.dataset.rs.split("|")[1]]=num(i.value)||0);
       x.split=split;x.kg=Object.entries(split).reduce((a,[s,q])=>a+q*PTD[s].kgu,0);x.rec=num($(`[data-erec="${fid}"]`).value)||0;x.bolsa=$(`[data-ebol="${fid}"]`).value;x.nb=num($(`[data-enb="${fid}"]`).value)||0;x.net=num($(`[data-eet="${fid}"]`).value)||0;x.eobs=$(`[data-eobs="${fid}"]`).value.trim();
       x.merma=x.horno?(x.horno-x.rec)/x.horno:0;if(x.merma*100>Q.merma)alertas++;
@@ -1208,6 +1220,16 @@ document.addEventListener("click",e=>{
       x.creal=x.kg?((x.cmat||0)+x.nb*MP(x.bolsa).cost+x.net*MP("ETI").cost)/x.kg:0;
       Object.entries(split).forEach(([s,q])=>{if(q)addMov("PT:"+s,q,"prod",p.lote,"",p.lote,addD(p.fecha,PT(s).vida||90))})}
     p.emp={by:SES.u,ts:Date.now()};planHist(p,"cerr");put("plan",p);closeModal();track("empaque_registrado",{alertas});commit();toast(alertas?`⚠️ ${alertas} producto(s) con merma alta · pasa a Calidad`:"Empaque registrado · pasa a Calidad");break}
+  case"pcc":pccSheet(d.id);break;
+  case"pccsave":{const p=DB.plan[d.id];const[l,k]=d.k.split("|");const st=PCCL[l].st.find(x=>x.k===k);const r={v:{},ts:Date.now(),by:SES.u};
+    (st.f||[]).forEach(x=>{const el=$(`[data-pcf="${l}|${k}|${x.k}"]`);const v=el?num(el.value):null;if(v!=null)r.v[x.k]=v});
+    const missing=(st.f||[]).filter(x=>!x.opt&&r.v[x.k]==null);if(missing.length)return toast("Falta: "+missing.map(x=>x.n).join(", "));
+    const se=$(`[data-pcs="${l}|${k}"]`);if(se)r.sel=se.value;const ch=$(`[data-pcc="${l}|${k}"]`);if(ch)r.chk=ch.checked;r.acc=($(`[data-pca="${l}|${k}"]`)||{}).value||"";r.acc=r.acc.trim();
+    if(!pccVal(st,r)&&!r.acc)return toast("Fuera de límite: escribe la acción correctiva");
+    if(st.h24){const du=((p.pcc||{})[l]||{}).duch;if(du&&Date.now()-du.ts<24*36e5&&!confirm("Lleva "+nf((Date.now()-du.ts)/36e5,1)+" h desde la ducha. El flujograma pide 24 h en cava. ¿Registrar igual?"))return}
+    p.pcc=p.pcc||{};p.pcc[l]=p.pcc[l]||{};p.pcc[l][k]=r;put("plan",p);track("pcc_registrado",{etapa:k,ok:pccVal(st,r)});commit();pccSheet(p.id);toast(pccVal(st,r)?"Etapa registrada":"Registrada con acción correctiva");break}
+  case"cavsave":{const t=today();const r=DB.cav[t]?JSON.parse(JSON.stringify(DB.cav[t])):{id:t,l:[]};let n=0;$$("[data-cav]").forEach(i=>{const v=num(i.value);if(v==null)return;r.l.push({k:i.dataset.cav,t:v,ts:Date.now(),by:SES.u});n++});
+    if(!n)return toast("Escribe al menos una temperatura");put("cav",r);track("cavas_temperatura",{n});commit();toast(n+" temperaturas registradas");break}
   case"rutadd":rutSheet();break;
   case"semprev":UI.semLun=addD(UI.semLun||lunesDe(today()),-7);render();break;
   case"semnext":UI.semLun=addD(UI.semLun||lunesDe(today()),7);render();break;
@@ -1219,10 +1241,10 @@ document.addEventListener("click",e=>{
     const o=$("#ru_obs").value.trim();if(o)r.obs.push(o);if(!n&&!o)return toast("Escribe al menos una medición");put("rut",r);closeModal();track("rutina_variable",{mediciones:n});commit();toast(n+" mediciones guardadas");break}
   case"ptraz":printTraz(d.lote);break;
   case"desp":{const o=pendientes().find(x=>x.key===d.k);if(o)despSheet(o);break}
-  case"despok":{const o=pendientes().find(x=>x.key===d.k);if(!o)return closeModal();const real=[],qty=[];let kg=0;const lotes=[];
+  case"despok":{const o=pendientes().find(x=>x.key===d.k);if(!o)return closeModal();const tc=num(($("#d_tc")||{}).value);if(!$("#d_ref").checked&&!confirm("El flujograma pide transporte refrigerado (PCC 8). ¿Despachar igual?"))return;if(tc!=null&&tc>5&&!confirm("El camión está a "+fx(tc)+" °C (límite 5 °C). ¿Despachar igual?"))return;const real=[],qty=[];let kg=0;const lotes=[];
     o.items.forEach((i,x)=>{const p=PT(i.sku);const q=num(($(`[data-dq="${x}"]`)||{}).value);const v=q==null?i.q:q;qty.push(v);real.push(p&&p.pres==="peso"?v:null);if(!p)return;kg+=v*p.kgu;
       consumeFIFO("PT:"+i.sku,v,"desp",o.id+" · "+(o.cli||o.cod)).forEach(a=>lotes.push({sku:i.sku,lote:a.lote,q:a.q}))});
-    put("pst",{id:o.key,est:"desp",ts:Date.now(),vend:o.vend,oid:o.id,real,qty,fac:$("#d_fac").value.trim(),guia:$("#d_guia").value.trim(),kg,lotes,snap:{id:o.id,vend:o.vend,cod:o.cod,cli:o.cli,entrega:o.entrega,date:o.date,items:o.items,st:o.st,src:o.src}});
+    put("pst",{id:o.key,est:"desp",ts:Date.now(),vend:o.vend,oid:o.id,real,qty,fac:$("#d_fac").value.trim(),guia:$("#d_guia").value.trim(),tcam:tc,refr:$("#d_ref").checked,kg,lotes,snap:{id:o.id,vend:o.vend,cod:o.cod,cli:o.cli,entrega:o.entrega,date:o.date,items:o.items,st:o.st,src:o.src}});
     closeModal();track("despacho",{kg});commit();toast(isTest()?"Despachado (simulado)":o.src==="vend"?"Despachado · el vendedor lo verá en su app":"Despachado · inventario actualizado");break}
   case"plib":{const p=DB.plan[d.id];if(SES.u!=="prueba"&&p.real&&p.real.by===SES.u)return toast("Control: no puedes liberar un lote que cerraste tú. Lo libera otra persona de Calidad.");p.lib={by:SES.u,ts:Date.now(),nota:""};p.ret=null;put("plan",p);track("lote_liberado");commit();toast("Lote "+p.lote+" liberado · ya se puede despachar");break}
   case"pret":openModal(`<div class="grab"></div><h3>Retener el lote</h3><div class="muted">Queda en cuarentena hasta que lo liberes. Explica el motivo.</div><input id="rt_n" placeholder="Ej. Revisar textura y color del lote" style="margin-top:10px"><button class="btn full big" style="margin-top:10px" data-act="pretok" data-id="${d.id}">Retener</button>`);break;
@@ -1235,7 +1257,7 @@ document.addEventListener("click",e=>{
     download("meister-planta-movimientos-"+today()+".csv",rows);track("csv_descargado");break}
   case"cfgsave":{const r={};Object.entries(UI.rt).forEach(([p,rs])=>r[p]=rs.slice());setCfg("roles",r);
     setCfg("eq",EQ().map((e,i)=>Object.assign({},e,{kgh:num($(`[data-eqk="${i}"]`).value)||e.kgh,h:num($(`[data-eqh="${i}"]`).value)||e.h})));
-    const cb=num($("#cf_cob").value);setCfg("cobDias",cb==null?2:cb);setCfg("capSem",num($("#cf_sem").value)||8000);const g=k=>num($(k).value);setCfg("qc",{mpPh:[g("#q_mp0")??QCD.mpPh[0],g("#q_mp1")??QCD.mpPh[1]],mpT:g("#q_mpt")??QCD.mpT,mpTc:QCD.mpTc,prPh:[g("#q_pr0")??QCD.prPh[0],g("#q_pr1")??QCD.prPh[1]],prT:g("#q_prt")??QCD.prT,merma:g("#q_mer")??QCD.merma});if(g("#q_lote"))setCfg("nextLote",Math.round(g("#q_lote")));closeModal();track("config_guardada");commit();toast("Configuración guardada");break}
+    const cb=num($("#cf_cob").value);setCfg("cobDias",cb==null?2:cb);setCfg("capSem",num($("#cf_sem").value)||8000);const g=k=>num($(k).value);setCfg("qc",{mpPh:[g("#q_mp0")??QCD.mpPh[0],g("#q_mp1")??QCD.mpPh[1]],mpT:g("#q_mpt")??QCD.mpT,mpTmin:QCD.mpTmin,mpTc:QCD.mpTc,prPh:[g("#q_pr0")??QCD.prPh[0],g("#q_pr1")??QCD.prPh[1]],prT:g("#q_prt")??QCD.prT,merma:g("#q_mer")??QCD.merma});if(g("#q_lote"))setCfg("nextLote",Math.round(g("#q_lote")));closeModal();track("config_guardada");commit();toast("Configuración guardada");break}
   case"demo":closeModal();demo();break;
   case"simped":closeModal();simPedidos(8);commit();toast("8 pedidos simulados para mañana");break;
   case"as":SES.as=d.as||null;LS.set(SKEY,SES);UI.tab="home";track("ver_como",{como:SES.as||"todos"});render();window.scrollTo(0,0);break;
@@ -1328,6 +1350,7 @@ function testBar(){const ps=PEOPLE.filter(p=>!p.test);return `<div class="testba
 function mpFuera(){const out=[];live(DB.oc).forEach(o=>{if(o.est==="rec")o.lines.forEach((l,i)=>{if(l.qc==="mal"&&!l.lib&&!l.rech)out.push({o,l,i})})});return out}
 function calView(){
   if((UI.sub.calv||"lot")==="rut")return calTabs()+rutView();
+  if(UI.sub.calv==="cav")return calTabs()+cavasView();
   const ed=has("cal");const ps=planes().filter(p=>p.est==="cerr"&&p.real);const pend=ps.filter(p=>!p.lib);const lib=ps.filter(p=>p.lib).slice(0,8);const mq=mpFuera();
   return calTabs()+`<div class="mini"><div><b class="${pend.length?"neg":""}">${pend.length}</b><span>lotes por liberar</span></div><div><b class="${mq.length?"neg":""}">${mq.length}</b><span>MP por decidir</span></div><div><b>${lib.length}</b><span>liberados</span></div></div>
   <div class="alert blu"><span>🔬</span><div>Ningún lote sale a despacho sin la liberación de ${esc(holders("cal").join(" · ")||"Calidad")}. La materia prima que llegó fuera de rango no se usa en producción hasta que se decida.</div></div>
@@ -1376,7 +1399,7 @@ function semView(){
   const idx=dv<0?[0,1,2,3,4]:[dv];
   const table=`<div class="card scroll" style="padding:6px 8px"><table class="xt semt"><thead><tr><th rowspan="2">Producto</th><th rowspan="2" class="n">KG/LOTE</th>${idx.map(i=>`<th colspan="3" class="c">${DIAS[new Date(dias[i]+"T12:00:00").getDay()].toUpperCase()} ${new Date(dias[i]+"T12:00:00").getDate()}${ps[i]?`<div><span class="chip ${PEST[ps[i].est][1]}" style="font-size:10px">${PEST[ps[i].est][0]}</span></div>`:""}</th>`).join("")}<th colspan="3" class="c">TOTAL KG</th></tr>
    <tr>${idx.map(()=>`<th class="n">Req.</th><th class="n">Elab.</th><th class="n">Log.</th>`).join("")}<th class="n">Req.</th><th class="n">Elab.</th><th class="n">Log.</th></tr></thead><tbody>
-   ${grps.map(g=>`<tr class="grp"><td colspan="${3+idx.length*3+3}">${esc(g)}</td></tr>`+DATA.SEM.filter(r=>r.grp===g).map(r=>{const kq=[0,1,2,3,4].reduce((a,i)=>a+val(i,r.id)*kglOf(r),0),ke=[0,1,2,3,4].reduce((a,i)=>a+(E[i][r.id]||0)*kglOf(r),0);
+   ${grps.map(g=>`<tr class="grp"><td colspan="${3+idx.length*3+3}">${esc(g)}${/JAMON/.test(g)?" · línea de piezas: arranca 3 días hábiles antes (descongelar)":""}</td></tr>`+DATA.SEM.filter(r=>r.grp===g).map(r=>{const kq=[0,1,2,3,4].reduce((a,i)=>a+val(i,r.id)*kglOf(r),0),ke=[0,1,2,3,4].reduce((a,i)=>a+(E[i][r.id]||0)*kglOf(r),0);
      return `<tr><td><b>${esc(r.n)}</b><div class="muted">${esc(r.sku)} · stock ${nf(Math.max(0,stock("PT:"+r.sku))*PTD[r.sku].kgu,0)} kg${(()=>{const v=VV[PTD[r.sku].f];return v&&v.rate&&v.dias<4?` · <b class="neg">⏳ ${nf(v.dias,1)} d</b>`:""})()}</div></td><td class="n">${r.kgl>1?nf(kglOf(r),0):"kg"}</td>${idx.map(i=>cell(i,r)).join("")}<td class="n">${kq?nf(kq,0):""}</td><td class="n">${ke?nf(ke,0):""}</td><td class="n">${lg(ke,kq)}</td></tr>`}).join("")).join("")}
    <tr class="sum"><td colspan="2">TOTAL LOTES</td>${idx.map(i=>`<td class="n">${nf(T[i].lot,2)}</td><td></td><td></td>`).join("")}<td colspan="3"></td></tr>
    <tr class="sum"><td colspan="2">TOTAL KILOS PIEZAS</td>${idx.map(i=>`<td class="n">${nf(T[i].kgP,0)}</td><td></td><td></td>`).join("")}<td colspan="3"></td></tr>
@@ -1401,7 +1424,7 @@ function demoSemana(){const lun="2026-11-16";const dias=semDias(lun);const SEM3=
     const p={id:uid(),num:"PP-"+String(Object.keys(DB.plan).length+1).padStart(3,"0"),fecha:d,lines:{},req,est:"borr",ts:Date.now()+i,sem:fcorta(lun),hist:[],obsDia:"Semana real del Excel (prueba)"};syncLines(p);
     if(Object.keys(el).length&&d<today()){const f={};Object.entries(el).forEach(([id,v])=>{const r=SEMR[id];const fid=PTD[r.sku].f;const kg=v*kglOf(r);const x=f[fid]||(f[fid]={masa:0,horno:0,rec:0,kg:0,split:{},cstd:costF(fid),creal:costF(fid),merma:0.01});x.masa+=kg/F(fid).rend;x.horno+=kg;x.rec+=kg*0.99;x.kg+=kg*0.99;x.split[r.sku]=(x.split[r.sku]||0)+kg*0.99/PTD[r.sku].kgu});
       p.est="cerr";p.lote=String(NEXTLOTE()+i);p.real={f,cond:{},ts:Date.now(),by:"prueba",obs:""};p.emp={by:"prueba",ts:Date.now()};p.lib={by:"prueba",ts:Date.now()}}
-    put("plan",p)});UI.semLun=lun}
+    put("plan",p)});setCfg("nextLote",NEXTLOTE()+5);UI.semLun=lun}
 const DEMO_SEM=[{"id":"JAM5001","q":[15,0,0,0,0],"e":[0,0,0,0,0]},{"id":"JAM5009","q":[200,0,0,0,0],"e":[0,0,0,0,0]},{"id":"JAM5006","q":[500,0,0,0,0],"e":[0,0,0,0,0]},{"id":"LOM5002","q":[60,0,0,0,0],"e":[0,0,0,0,0]},{"id":"TOC5001","q":[300,0,0,0,0],"e":[0,0,0,0,0]},{"id":"SAL5004","q":[0.75,0,0,0,0],"e":[1,0,0,0,0]},{"id":"SAL5006","q":[0.25,0,0,0,0],"e":[0,0,0,0,0]},{"id":"SAL5015","q":[1,0,0,0,0],"e":[1,0,0,0,0]},{"id":"SAL5023","q":[20,10,0,0,0],"e":[10,10,10,0,0]},{"id":"SAL5028","q":[0,1,0,0,0],"e":[0,0,0,0,0]},{"id":"SAL5031","q":[0,8,0,0,0],"e":[0,10,0,10,7]},{"id":"SAL5031-b","q":[0,1,0,0,0],"e":[0,0,0,0,0]},{"id":"SAL5019","q":[3,0,0,0,0],"e":[3,0,0,0,0]},{"id":"SAL5037","q":[1,0,0,0,0],"e":[1,0,0,0,0]},{"id":"SAL5017","q":[0,0,0,0,0],"e":[0,0,1,0,0]},{"id":"ROA5003","q":[150,0,0,0,0],"e":[0,0,0,0,0]},{"id":"PAS5001","q":[80,0,0,0,0],"e":[0,0,0,0,0]},{"id":"CHO5003","q":[0,0,5,0,0],"e":[0,0,5,0,0]},{"id":"CHO5009","q":[0,0,1,0,0],"e":[0,0,0,0,0]},{"id":"CHO5006","q":[0,0,5,0,0],"e":[0,0,5,0,0]},{"id":"CHO5011","q":[0,0,1,0,0],"e":[0,0,0,0,0]},{"id":"CHI5001","q":[0.75,0,0,0,0],"e":[0,0,0,0,0]},{"id":"CHI5003","q":[0.25,0,0,0,0],"e":[0,0,0,0,0]}];
 window.addEventListener("resize",()=>{clearTimeout(window.__rz);window.__rz=setTimeout(()=>{if(SES&&!$("#mdl"))render()},250)});
 
@@ -1415,12 +1438,12 @@ function consumeFrom(item,qty,lote,tipo,ref){const out=[];let rest=qty;const l=l
 /* ---------- producto en tránsito: elaborado que aún no está disponible ---------- */
 function transito(){const rows=[];let kg=0;
   planes().forEach(p=>{let et=null,items=[];
-    if(p.est==="proc"){et=["En producción","c-amb"];items=Object.entries(p.lines).filter(([f,k])=>k>0).map(([f,k])=>({n:F(f).n,kg:+k}))}
+    if(p.est==="proc"){et=[etapaProc(p),"c-amb"];items=Object.entries(p.lines).filter(([f,k])=>k>0).map(([f,k])=>({n:F(f).n,kg:+k}))}
     else if(p.est==="emp"){et=["Por empacar","c-blu"];items=Object.entries(p.real.f||{}).map(([f,x])=>({n:F(f).n,kg:x.horno||0}))}
     else if(p.est==="cerr"&&p.real&&!p.lib){et=p.ret?["Retenido por Calidad","c-red"]:["Por liberar (Calidad)","c-amb"];items=Object.entries(p.real.f||{}).map(([f,x])=>({n:F(f).n,kg:x.kg||0}))}
     if(!et)return;const t=items.reduce((a,i)=>a+i.kg,0);kg+=t;const h=(p.hist||[]).slice(-1)[0];rows.push({p,et,items,kg:t,desde:h?h.ts:p.ts})});
   return {n:rows.length,kg,rows}}
-function transView(){const T=transito();const by=e=>T.rows.filter(r=>r.et[0].startsWith(e)).reduce((a,r)=>a+r.kg,0);
+function transView(){const T=transito();const by=e=>T.rows.filter(r=>e==="En producción"?r.p.est==="proc":r.et[0].startsWith(e)).reduce((a,r)=>a+r.kg,0);
   const prods={};T.rows.forEach(r=>r.items.forEach(i=>{const x=prods[i.n]||(prods[i.n]={n:i.n,a:0,b:0,c:0});if(r.p.est==="proc")x.a+=i.kg;else if(r.p.est==="emp")x.b+=i.kg;else x.c+=i.kg}));
   const hrs=t=>{const h=(Date.now()-t)/36e5;return h<1?Math.round(h*60)+" min":h<48?nf(h,1)+" h":nf(h/24,1)+" días"};
   return `<div class="mini"><div><b>${nf(by("En producción"),0)}</b><span>kg en producción</span></div><div><b>${nf(by("Por empacar"),0)}</b><span>kg por empacar</span></div><div><b class="${by("Por liberar")+by("Retenido")?"neg":""}">${nf(by("Por liberar")+by("Retenido"),0)}</b><span>kg por liberar</span></div></div>
@@ -1448,6 +1471,55 @@ function agotarse(n){return verif().filter(r=>r.rate>0).sort((a,b)=>a.dias-b.dia
 function agotarsePanel(lun){const dias=semDias(lun);const ps=dias.map(planDe);const A=agotarse(8);if(!A.length)return "";
   const enSem=fid=>ps.reduce((a,p)=>a+(p&&p.lines?(+p.lines[fid]||0):0),0);
   return `<div class="card" style="padding:10px 12px;margin-bottom:10px"><b>🔥 Por agotarse · prioridad de la semana</b><div style="margin-top:6px">${A.map((r,i)=>{const pl=enSem(r.f);return `<div class="qrow"><div class="main"><b>${i+1}. ${esc(r.n)}</b><small>stock ${nf(r.st,0)} kg · vende ~${nf(r.rate,0)} kg/día${r.dem?" · pedido "+nf(r.dem,0)+" kg":""}</small></div><span class="chip ${r.dias<2?"c-red":r.dias<4?"c-amb":"c-grn"}">${r.dias<99?nf(r.dias,1)+" días":"—"}</span><span class="muted" style="width:92px;text-align:right">${pl?"en plan "+nf(pl,0)+" kg":"<b class='neg'>sin plan</b>"}</span></div>`}).join("")}</div></div>`}
+
+/* ===================================================================== FLUJOGRAMA ESTRUCTURADO MEISTER (PCC)
+   Hoja de proceso por lote: etapas III–XIII de embutidos y Día 1–5 de la línea de piezas. */
+const PCCL = {
+  emb:{n:"Línea de embutidos",st:[
+    {k:"desc",n:"III · Descongelamiento",d:"En cava fría 0–5 °C, fuera de la zona de peligro (PCC 3)",sel:["En cava fría (0–5 °C)","No aplica: llegó refrigerada","Fuera de cava (no conforme)"],bad:"Fuera de cava (no conforme)",f:[{k:"t",n:"T cava °C",min:0,max:5,opt:1}],pcc:3},
+    {k:"sel",n:"IV · Selección",d:"Inspección organoléptica; rechazo inmediato de lo fuera de especificación",chk:"Materia prima aprobada"},
+    {k:"prep",n:"V · Preparación",d:"Deshuese, limpieza, recorte y troceado con la sala fría",chk:"Mesas y utensilios higienizados"},
+    {k:"dos",n:"VI · Dosificación",d:"Pesaje exacto de carnes, condimentos, aditivos y sal de cura según la receta máster",chk:"Pesado según la receta"},
+    {k:"mol",n:"VII · Molienda",d:"Molino Seydelmann · masa a 1–2 °C · disco y cuchillas afilados",f:[{k:"t",n:"T masa °C",max:2}],chk:"Disco y cuchillas OK"},
+    {k:"cut",n:"VIII · Cúter",d:"La masa NO debe pasar de 3 °C",f:[{k:"t",n:"T masa °C",max:3}],pcc:"cúter"},
+    {k:"llen",n:"IX · Llenado",d:"Embutido sin bolsas de aire",chk:"Sin bolsas de aire"},
+    {k:"ata",n:"X · Atado",d:"Peso y longitud uniformes por pieza",chk:"Peso y longitud uniformes"},
+    {k:"term",n:"XI · Tratamiento térmico",d:"Secado, ahumado y cocción · T interna mínima 70 °C (PCC 4)",f:[{k:"t",n:"T interna °C",min:70}],pcc:4,req:1},
+    {k:"duch",n:"XII · Ducha de enfriamiento",d:"Choque térmico hasta 27 °C internos (PCC 5)",f:[{k:"t",n:"T interna °C",max:27}],pcc:5,req:1},
+    {k:"cava",n:"XIII · Cava de enfriamiento 24 h",d:"Núcleo ≤ 6 °C después de 24 h (PCC 6)",f:[{k:"t",n:"T núcleo °C",max:6}],pcc:6,req:1,h24:1}]},
+  pie:{n:"Línea de piezas (perniles, lomos cuadrados, tocineta)",st:[
+    {k:"desc",n:"Día 1 · Descongelamiento controlado",d:"En cava de refrigeración 0–5 °C; control de tiempo y goteo",sel:["En cava fría (0–5 °C)","No aplica: llegó refrigerada","Fuera de cava (no conforme)"],bad:"Fuera de cava (no conforme)",f:[{k:"t",n:"T cava °C",min:0,max:5,opt:1}],pcc:3},
+    {k:"desp",n:"Día 2 · Desposte, limpieza y formado",d:"Deshuese, retiro de grasa y pulido según el producto",f:[{k:"kg",n:"Peso limpio kg"}],chk:"Mesas y cuchillos higienizados"},
+    {k:"iny",n:"Día 3 · Inyección y marinado",d:"Salmuera < 4 °C · % de inyección = peso final vs. inicial",f:[{k:"kg0",n:"Peso antes kg"},{k:"kg1",n:"Peso después kg"},{k:"t",n:"T salmuera °C",max:4}]},
+    {k:"term",n:"Día 4 · Cocción y ahumado",d:"T interna 70–72 °C en el centro de la pieza más grande (PCC)",f:[{k:"t",n:"T interna °C",min:70}],pcc:4,req:1},
+    {k:"duch",n:"Día 5 · Ducha de enfriamiento",d:"Choque térmico hasta 27 °C internos",f:[{k:"t",n:"T interna °C",max:27}],pcc:5,req:1},
+    {k:"cava",n:"Día 5+ · Cava de estabilización 24 h",d:"Núcleo ≤ 6 °C antes de empacar",f:[{k:"t",n:"T núcleo °C",max:6}],pcc:6,req:1,h24:1}]},
+  fre:{n:"Frescos",st:[
+    {k:"prep",n:"Preparación y corte",d:"Sala fría, utensilios higienizados",chk:"Higiene OK"},
+    {k:"cava",n:"Cava de producto",d:"≤ 5 °C",f:[{k:"t",n:"T cava °C",max:5}]}]}
+};
+const lineaDe = fam => fam==="Jamones"||fam==="Ahumados" ? "pie" : fam==="Frescos" ? "fre" : "emb";
+const lineasPlan = p => [...new Set(Object.keys(p.lines||{}).filter(f=>p.lines[f]>0&&FD[f]).map(f=>lineaDe(FD[f].fam)))].sort((a,b)=>"embpiefre".indexOf(a)-"embpiefre".indexOf(b));
+function pccVal(st,r){if(!r)return null;let ok=true;(st.f||[]).forEach(x=>{const v=r.v&&r.v[x.k];if(v==null)return;if(x.min!=null&&v<x.min)ok=false;if(x.max!=null&&v>x.max)ok=false});if(st.bad&&r.sel===st.bad)ok=false;if(st.chk&&r.chk===false)ok=false;return ok}
+function pccEstado(p){const L=lineasPlan(p);let n=0,d=0,bad=0,falta=[];L.forEach(l=>PCCL[l].st.forEach(st=>{n++;const r=((p.pcc||{})[l]||{})[st.k];if(r){d++;if(!pccVal(st,r))bad++}else if(st.req)falta.push(PCCL[l].st.length>3?st.n:st.n)}));return{n,d,bad,falta,L}}
+function etapaProc(p){const L=lineasPlan(p);const has_=k=>L.every(l=>!PCCL[l].st.some(s=>s.k===k)||((p.pcc||{})[l]||{})[k]);if(L.length&&has_("cava"))return"Listo para empaque";if(L.some(l=>((p.pcc||{})[l]||{}).duch||((p.pcc||{})[l]||{}).term))return"Enfriamiento (ducha y cava 24 h)";if(L.some(l=>Object.keys((p.pcc||{})[l]||{}).length))return"Elaboración";return"Por arrancar"}
+function pccSheet(id){const p=DB.plan[id];const ed=has("cap")||has("cal");const L=lineasPlan(p);
+  openModal(`<div class="grab"></div><h3>📋 Hoja de proceso · Lote ${esc(p.lote||p.num)}</h3><div class="muted">Según el Flujograma estructurado Meister. Registra cada etapa al terminarla. Si un valor sale del límite, anota la acción correctiva.</div>
+  ${L.map(l=>`<div class="sec-t">${esc(PCCL[l].n)}</div>${PCCL[l].st.map(st=>{const r=((p.pcc||{})[l]||{})[st.k];const ok=pccVal(st,r);
+    if(r)return `<div class="pccrow ${ok?"ok":"bad"}"><div class="main"><b>${ok?"✓":"✗"} ${esc(st.n)}</b>${st.pcc?` <span class="chip ${ok?"c-grn":"c-red"}">${typeof st.pcc==="number"?"PCC "+st.pcc:"Control crítico"}</span>`:""}<small>${[r.sel,(st.f||[]).filter(x=>r.v&&r.v[x.k]!=null).map(x=>x.n.replace(" °C","")+": "+fx(r.v[x.k])+(x.k==="t"?" °C":"")).join(" · "),r.v&&r.v.kg0&&r.v.kg1?"inyección "+pct(r.v.kg1/r.v.kg0-1):"",r.acc?"Acción: "+r.acc:""].filter(Boolean).map(esc).join(" · ")} · ${hhmm(r.ts)} ${dlab(iso(r.ts))} · ${esc(nameOf(r.by))}</small></div></div>`;
+    return `<div class="pccrow"><div class="main"><b>${esc(st.n)}</b>${st.pcc?` <span class="chip c-amb">${typeof st.pcc==="number"?"PCC "+st.pcc:"Control crítico"}</span>`:""}${st.req?` <span class="chip">obligatorio</span>`:""}<small>${esc(st.d)}</small>
+      ${ed?`<div class="pccf">${st.sel?`<select data-pcs="${l}|${st.k}">${st.sel.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`:""}${(st.f||[]).map(x=>`<input type="number" step="0.1" inputmode="decimal" placeholder="${esc(x.n)}" data-pcf="${l}|${st.k}|${x.k}">`).join("")}${st.chk?`<label class="chk" style="border:0;padding:4px 0"><input type="checkbox" data-pcc="${l}|${st.k}" checked> ${esc(st.chk)}</label>`:""}
+      <input placeholder="Acción correctiva (si algo no cumple)" data-pca="${l}|${st.k}"><button class="btn sm" data-act="pccsave" data-id="${id}" data-k="${l}|${st.k}">Registrar</button></div>`:""}</div></div>`}).join("")}`).join("")}`)}
+/* temperatura de cavas (PCC 2 y PCC 7) */
+const CAVAS=[{k:"mpr",n:"Cava MP refrigerada",max:5},{k:"mpc",n:"Cava de congelación",max:-18},{k:"enf",n:"Cava de enfriamiento",max:6},{k:"ptc",n:"Cava de producto terminado",max:5}];
+function cavasView(){const t=today();const r=DB.cav[t];const ed=has("cal")||has("almmp")||has("almpt");const hist=live(DB.cav).sort((a,b)=>b.id.localeCompare(a.id)).slice(0,10);
+  const bad=x=>{const c=CAVAS.find(c=>c.k===x.k);return c&&x.t>c.max};
+  return `<div class="ref">PCC 2 y PCC 7: refrigeración &lt; 5 °C, congelación ≤ −18 °C, enfriamiento ≤ 6 °C, producto terminado ≤ 5 °C. Registra mañana y tarde.</div>
+  ${ed?`<div class="card">${CAVAS.map(c=>`<div class="qrow"><div class="main">${esc(c.n)}<small>límite ${c.max<0?"≤ ":"≤ "}${fx(c.max)} °C</small></div><input type="number" step="0.1" inputmode="decimal" data-cav="${c.k}" placeholder="°C" style="width:84px"></div>`).join("")}<button class="btn full" style="margin-top:8px" data-act="cavsave">🌡️ Registrar temperaturas</button></div>`:""}
+  <div class="sec-t">Hoy</div>${r&&r.l.length?`<div class="card">${r.l.slice().reverse().map(x=>`<div class="qrow"><div class="main">${esc(CAVAS.find(c=>c.k===x.k).n)}<small>${hhmm(x.ts)} · ${esc(nameOf(x.by))}</small></div><b class="mono ${bad(x)?"neg":"pos"}">${fx(x.t)} °C</b></div>`).join("")}</div>`:`<div class="empty">Sin registros hoy.</div>`}
+  ${hist.filter(h=>h.id!==t).map(h=>{const n=h.l.filter(bad).length;return `<div class="irow" style="cursor:default"><span class="dot ${n?"r":"g"}"></span><div class="main"><div class="nm">${dlab(h.id)}</div><div class="meta">${h.l.length} lecturas</div></div><div class="amt"><b class="${n?"neg":"pos"}">${n}</b>fuera</div></div>`}).join("")}`}
+function piezasAgenda(p){const L=lineasPlan(p);if(!L.includes("pie"))return "";const back=n=>{let x=p.fecha,k=0;while(k<n){x=addD(x,-1);const w=new Date(x+"T12:00:00").getDay();if(w>0&&w<6)k++}return x};
+  return `<div class="alert amb"><span>🥩</span><div><b>Línea de piezas:</b> descongelar el ${dlab(back(3))}, desposte el ${dlab(back(2))}, inyección el ${dlab(back(1))} y cocción el ${dlab(p.fecha)}. El lote se inicia el día de descongelar.</div></div>`}
 
 </script>
 </body>
