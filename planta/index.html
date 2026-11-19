@@ -351,6 +351,10 @@ body:has(#mdl) .bkpill{display:none}
 .pccrow.ok{background:#f3faf3;border-color:#cfe8cf}.pccrow.bad{background:#fff6f5;border-color:#f0c4c4}
 .pccf{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}.pccf input[type=number]{width:110px}.pccf select{flex:1;min-width:160px}.pccf input:not([type]){flex:1;min-width:160px}
 .pccbar{font-size:12.5px;margin:4px 0 8px}
+.fab{position:fixed;z-index:7;right:max(14px,calc(50% - 216px));bottom:calc(74px + env(safe-area-inset-bottom));background:var(--red);color:#fff;border:0;border-radius:999px;padding:13px 18px 13px 16px;font:inherit;font-size:15px;font-weight:700;box-shadow:0 6px 18px rgba(217,31,27,.35),0 2px 4px rgba(0,0,0,.12);display:flex;align-items:center;gap:6px;cursor:pointer}
+.fab:active{transform:scale(.96)}
+main{padding-bottom:150px!important}
+.task2.ld{width:100%}.task2.ld.off{opacity:.55;cursor:default}
 
 </style>
 </head>
@@ -476,6 +480,10 @@ const CAPSEM = () => DB.cfg.capSem || 8000;
 const QCD = {mpPh:[5.3,6.5],mpT:6,mpTmin:0,mpTc:-18,prPh:[5.4,6.5],prT:6,merma:3};
 const QCF = () => Object.assign({},QCD,DB.cfg.qc||{});
 const NEXTLOTE = () => DB.cfg.nextLote || 175;
+const OPS = () => DB.cfg.ops || [];
+const opsList = () => `<datalist id="opsl">${OPS().concat(PEOPLE.filter(x=>!x.test).map(x=>x.n)).map(n=>`<option value="${esc(n)}">`).join("")}</datalist>`;
+const lastOp = k => (LS.get("meister_planta_op")||{})[k]||"";
+const quien = r => r.op ? r.op+(r.op!==nameOf(r.by)?" (anotó "+nameOf(r.by)+")":"") : nameOf(r.by);
 const fx = n => String(n).replace(".",",");
 
 /* maestro con ajustes */
@@ -627,7 +635,7 @@ function shell(body){
   return `<header class="appbar">${t==="home"?`<button class="meb" data-act="menu">${u.test?"🧪":ini(u.n)}</button>`:`<button class="backb" data-tab="home" aria-label="Volver">‹</button>`}
     <div class="bt"><div class="btt">${t==="home"?"Planta Meister":ar.ico+" "+ar.n}</div><div class="bts"><span class="sync ${SY.st==="err"?"off":""}"></span>${esc(u.n)} · ${esc(isTest()&&SES.as?"viendo como "+person(SES.as).n:cargo(u.id))}</div></div>
     <button class="bell2" data-act="refresh" title="Actualizar">↻</button></header>
-  ${isTest()?testBar():""}<main>${body}</main>
+  ${isTest()?testBar():""}<main>${body}</main>${t==="home"||!NOLOAD[t]?`<button class="fab" data-act="cargar">＋ <span>${t==="home"?"Cargar datos":"Cargar datos"}</span></button>`:""}
   <nav class="tabs">${tabs.map(k=>`<button data-tab="${k}" class="${(k===t||(k==="mas"&&!tabs.includes(t)))?"on":""}"><span style="display:block;font-size:20px;line-height:22px;margin-bottom:3px">${k==="home"?"🏠":k==="mas"?"☰":AREAS[k].ico}</span>${k==="home"?"Inicio":k==="mas"?"Más":AREAS[k].n.split(" ")[0]}</button>`).join("")}</nav>`;
 }
 
@@ -676,7 +684,7 @@ function home(){
   return `<div class="hi">${h<12?"Buenos días":h<19?"Buenas tardes":"Buenas noches"}, <b>${esc(u.n.split(" ")[0])}</b></div>
   ${empty?(alm?`<button class="task2" data-tab="inv" style="width:100%;margin-bottom:10px"><span class="ti amb">📋</span><span class="tx">Cargar inventario inicial<small>Inventario → Conteo físico</small></span>›</button>`:"")+`<div class="alert amb"><span>📋</span><div><b>Primer paso: inventario inicial.</b> Almacén cuenta la cava y el almacén y lo registra en Inventario → Conteo físico.${u0.test?" Para probar el flujo completo usa <b>Cargar datos de ejemplo</b> en el menú (toca tu inicial arriba a la izquierda).":""}</div></div>`
    :`<div class="sec-t">Tus pendientes</div><div class="tasks" style="margin-bottom:14px">${tareas.length?tareas.map(t=>`<button class="task2" ${t.act?`data-act="${t.act}"`:t.plan?`data-plan="${t.plan}"`:`data-tab="${t.tab}"`} ${t.sub?`data-gosub="${t.sub}"`:""}><span class="ti ${t.c}">${t.i}</span><span class="tx">${esc(t.t)}<small>${esc(t.s)}</small></span>›</button>`).join(""):`<div class="alert grn"><span>✓</span><div>No tienes pendientes ahora mismo.</div></div>`}</div>`}
-  <div class="sec-t">El flujo de la planta</div>
+  ${installCard()}<div class="sec-t">El flujo de la planta</div>
   <div class="flow">${FLOW.map((k,i)=>{const s=S[k];return `<button class="fl ${mine.includes(k)&&!u.test&&k!=="bal"&&k!=="inv"?"mine":""} ${s.al?"alert":s.ok?"ok":""}" data-tab="${k}">${s.n?`<span class="fb">${s.n}</span>`:""}<span class="fn">${i+1}</span><span class="fi">${AREAS[k].ico}</span><span class="ft">${AREAS[k].n}</span><span class="fs">${esc(s.s)}</span><span class="fo">${esc(ownersOf(k))}</span></button>`}).join("")}</div>
   <div class="muted" style="text-align:center;margin:4px 0 10px">Tus roles: ${rolesOf(u.id).map(r=>ROLES[r].i+" "+ROLES[r].n).join(" · ")||"ninguno"}</div>`;
 }
@@ -1006,7 +1014,7 @@ function trazDoc(p){const rows=trazRows(p);const ru=DB.rut[p.fecha];const R=Obje
   <table class="tdt"><thead><tr><th>Tipo de ingrediente</th><th>Proveedor</th><th>Fecha de recepción</th><th>Lote MP</th><th>Cantidad</th><th>Tipo de producto</th><th>Tripa utilizada</th><th>Condición de almacenamiento</th><th>Fecha de empaque</th></tr></thead><tbody>
   ${rows.map(r=>`<tr class="${r.cond&&/fuera/.test(r.cond)?"warn":""}"><td>${esc(r.tipo)}</td><td>${esc(r.prov)}</td><td>${r.frec}</td><td>${esc(r.lote)}</td><td>${nf(r.q,2)} ${r.u}</td><td>${esc(r.prods.join(" / "))}</td><td>${esc(r.tripa)}</td><td>${esc(r.cond)}</td><td>${r.fe}</td></tr>`).join("")||`<tr><td colspan="9">Sin consumos registrados</td></tr>`}</tbody></table>
   ${(p.real.mlots||[]).length?`<div class="tdsec"><b>Carne por batch</b></div><table class="tdt"><thead><tr><th>Producto</th><th>Carne</th><th>Proveedor</th><th>Lote del proveedor</th><th>Fecha de recepción</th><th>Kg</th></tr></thead><tbody>${p.real.mlots.map(x=>{const o=origenLote(x.mp,x.lote);return `<tr><td>${esc(F(x.fid).n)}</td><td>${esc(MP(x.mp).n)}</td><td>${esc(o.prov)}</td><td>${esc(x.lote)}</td><td>${o.f?fcorta(o.f):"—"}</td><td>${nf(x.q,1)}</td></tr>`}).join("")}</tbody></table>`:""}
-  ${p.pcc?`<div class="tdsec"><b>Hoja de proceso (PCC)</b>${p.epp?" · EPP verificado por "+esc(nameOf(p.epp.by)):""}</div><table class="tdt"><thead><tr><th>Etapa</th><th>Registro</th><th>Límite</th><th>Conforme</th><th>Acción correctiva</th><th>Hora</th><th>Responsable</th></tr></thead><tbody>${lineasPlan(p).flatMap(l=>PCCL[l].st.map(st=>{const r=(p.pcc[l]||{})[st.k];if(!r)return `<tr class="warn"><td>${esc(st.n)}</td><td colspan="6">Sin registro</td></tr>`;const ok=pccVal(st,r);return `<tr class="${ok?"":"warn"}"><td>${esc(st.n)}</td><td>${esc([r.sel,(st.f||[]).filter(x=>r.v[x.k]!=null).map(x=>x.n+": "+fx(r.v[x.k])).join(" · ")].filter(Boolean).join(" · ")||"✓")}</td><td>${esc((st.f||[]).filter(x=>x.min!=null||x.max!=null).map(x=>(x.min!=null?"≥ "+x.min:"")+(x.max!=null?" ≤ "+x.max:"")+" °C").join(" "))}</td><td>${ok?"Sí":"No"}</td><td>${esc(r.acc||"")}</td><td>${hhmm(r.ts)} ${fcorta(iso(r.ts))}</td><td>${esc(nameOf(r.by))}</td></tr>`})).join("")}</tbody></table>`:""}
+  ${p.pcc?`<div class="tdsec"><b>Hoja de proceso (PCC)</b>${p.epp?" · EPP verificado por "+esc(nameOf(p.epp.by)):""}</div><table class="tdt"><thead><tr><th>Etapa</th><th>Registro</th><th>Límite</th><th>Conforme</th><th>Acción correctiva</th><th>Hora</th><th>Responsable</th></tr></thead><tbody>${lineasPlan(p).flatMap(l=>PCCL[l].st.map(st=>{const r=(p.pcc[l]||{})[st.k];if(!r)return `<tr class="warn"><td>${esc(st.n)}</td><td colspan="6">Sin registro</td></tr>`;const ok=pccVal(st,r);return `<tr class="${ok?"":"warn"}"><td>${esc(st.n)}</td><td>${esc([r.sel,(st.f||[]).filter(x=>r.v[x.k]!=null).map(x=>x.n+": "+fx(r.v[x.k])).join(" · ")].filter(Boolean).join(" · ")||"✓")}</td><td>${esc((st.f||[]).filter(x=>x.min!=null||x.max!=null).map(x=>(x.min!=null?"≥ "+x.min:"")+(x.max!=null?" ≤ "+x.max:"")+" °C").join(" "))}</td><td>${ok?"Sí":"No"}</td><td>${esc(r.acc||"")}</td><td>${hhmm(r.ts)} ${fcorta(iso(r.ts))}</td><td>${esc(quien(r))}</td></tr>`})).join("")}</tbody></table>`:""}
   <div class="tdsec"><b>Producto elaborado</b> · ${R.map(([f,x])=>`${esc(F(f).n)}: masa ${nf(x.masa,1)} → entregado ${nf(x.horno,1)} → recibido ${x.rec!=null?nf(x.rec,1):"—"} → empacado ${x.kg!=null?nf(x.kg,1):"—"} kg`).join(" · ")}</div>
   ${ru?`<div class="tdsec"><b>Rutina variable del día</b> · MP: ${ru.mp.map(x=>`${esc(x.t)} pH ${fx(x.ph)} / ${fx(x.temp)} °C`).join(", ")||"—"} · Producto: ${ru.pr.map(x=>`${esc(x.t)} pH ${fx(x.ph)} / ${fx(x.temp)} °C`).join(", ")||"—"}</div>`:""}
   <div class="tdsec"><b>Observaciones:</b> ${obs.map(esc).join(" · ")}</div></div>`}
@@ -1110,10 +1118,52 @@ function cfgSheet(){const ps=PEOPLE.filter(p=>!p.test);UI.rt=Object.fromEntries(
   <div style="display:flex;gap:8px"><div style="flex:1"><label class="f">MP pH mín.</label><input id="q_mp0" type="number" step="0.1" value="${QCF().mpPh[0]}"></div><div style="flex:1"><label class="f">MP pH máx.</label><input id="q_mp1" type="number" step="0.1" value="${QCF().mpPh[1]}"></div><div style="flex:1"><label class="f">MP °C máx.</label><input id="q_mpt" type="number" step="0.5" value="${QCF().mpT}"></div></div>
   <div style="display:flex;gap:8px"><div style="flex:1"><label class="f">Prod. pH mín.</label><input id="q_pr0" type="number" step="0.1" value="${QCF().prPh[0]}"></div><div style="flex:1"><label class="f">Prod. pH máx.</label><input id="q_pr1" type="number" step="0.1" value="${QCF().prPh[1]}"></div><div style="flex:1"><label class="f">Prod. °C máx.</label><input id="q_prt" type="number" step="0.5" value="${QCF().prT}"></div></div>
   <div style="display:flex;gap:8px"><div style="flex:1"><label class="f">Alerta merma empaque %</label><input id="q_mer" type="number" step="0.5" value="${QCF().merma}"></div><div style="flex:1"><label class="f">Próximo Nº de lote</label><input id="q_lote" type="number" value="${NEXTLOTE()}"></div></div>
+  <label class="f">Operarios de planta (uno por línea, para la hoja de proceso)</label><textarea id="cf_ops" rows="4" style="width:100%">${esc(OPS().join("\n"))}</textarea>
   <button class="btn full big" style="margin-top:12px" data-act="cfgsave">Guardar</button>`);cfgWarn()}
 function cfgWarn(){const el=$("#cfgwarn");if(!el)return;const w=[];Object.entries(UI.rt).forEach(([p,rs])=>{const buys=rs.filter(r=>["ccar","cnoc","cemp","clim"].includes(r));if(buys.length&&rs.includes("almmp"))w.push(person(p).n+" compra y también recibe materia prima.");if(rs.includes("plan")&&rs.includes("apro"))w.push(person(p).n+" arma y aprueba el mismo plan.")});
   ["plan","cap","apro","receta","cal","almmp","almpt","empq","desp","ccar","cnoc","cemp","clim"].forEach(r=>{if(!Object.values(UI.rt).some(rs=>rs.includes(r)))w.push("Nadie tiene el rol "+ROLES[r].n+".")});
   el.innerHTML=w.length?`<div class="alert amb" style="margin-top:10px"><span>⚠️</span><div>${w.map(esc).join("<br>")}</div></div>`:`<div class="alert grn" style="margin-top:10px"><span>✓</span><div>Roles completos y con separación de funciones.</div></div>`}
+
+
+/* ---------- instalar en el teléfono ---------- */
+let BIP=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();BIP=e;if(UI&&UI.tab==="home")render()});
+function installCard(){const st=window.matchMedia&&matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(st||LS.get("meister_planta_noinst"))return "";const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  return `<div class="alert blu" style="align-items:center"><span>📲</span><div style="flex:1"><b>Instala la app en tu teléfono.</b> ${BIP?"Toca Instalar y queda como un ícono más.":ios?"En Safari toca Compartir ⬆️ y luego <b>Agregar a inicio</b>.":"En Chrome toca ⋮ y luego <b>Agregar a la pantalla principal</b>."}</div>${BIP?`<button class="btn sm" data-act="inst">Instalar</button>`:""}<button class="btn sm ghost" data-act="noinst" aria-label="Cerrar">✕</button></div>`}
+/* ---------- botón "Cargar datos" por área ---------- */
+const NOLOAD={transito:"Esta pantalla se llena sola con los lotes en producción, enfriamiento y empaque.",bal:"El balance se calcula solo con lo que cargan las demás áreas. Aquí puedes consultar y exportar."};
+function loadOpts(k){const o=[];const ps=planes();const A=(i,t,s,at)=>o.push({i,t,s,at});const who=r=>holders(r).join(" · ")||"—";
+  const L=(r,i,t,s)=>o.push({i,t,s,lock:"Lo carga "+who(r)});
+  switch(k){
+  case"ped":if(has("ofi")||has("plan")||has("desp"))A("☎️","Pedido de cadena o por teléfono","Cliente, productos y fecha de entrega",'data-act="pedman"');else L("ofi","☎️","Pedido de cadena o por teléfono","");break;
+  case"verif":if(has("almpt"))A("📋","Conteo físico de producto terminado","Lo que hay en la cava de PT",'data-act="conteo" data-cat="pt"');else L("almpt","📋","Conteo de producto terminado","");break;
+  case"plan":if(has("plan")){A("📅","Plan de la semana","Sugerido por lo que se agota primero",'data-act="weekplan"');A("🗓️","Plan de un día","Con los faltantes de hoy",'data-act="newplan"')}else L("plan","📅","Plan de producción","");
+    ps.filter(p=>p.est==="rev"&&has("cap")).forEach(p=>A("🏭","Confirmar capacidad · "+dlab(p.fecha),nf(planKg(p),0)+" kg",`data-plan="${p.id}"`));
+    ps.filter(p=>p.est==="cap"&&has("apro")).forEach(p=>A("✅","Aprobar plan · "+dlab(p.fecha),nf(planKg(p),0)+" kg",`data-plan="${p.id}"`));break;
+  case"exp":if(can.recipe())A("📖","Ajustar una receta (coeficientes)",has("receta")?"Tú la validas":"Giovanni la valida",'data-act="rpick"');else L("receta","📖","Recetas","");break;
+  case"inv":MPC.concat("pt").filter(c=>can.inv(c)).forEach(c=>{A("📋","Conteo físico · "+CATS[c].s,"Escribe lo que cuentas; la diferencia queda como ajuste",`data-act="conteo" data-cat="${c}"`);A("↕️","Entrada, salida o merma · "+CATS[c].s,"Busca el producto y registra el movimiento",`data-act="ipick" data-cat="${c}"`)});
+    if(!o.length)L("almmp","📋","Conteos y movimientos de inventario","");break;
+  case"comp":CTABS.forEach(T=>T.cats.forEach(c=>{if(has("c"+c))A("🛒","Nueva orden de compra · "+CATS[c].s,"Elige proveedor y materiales",`data-act="ocnew" data-cat="${c}"`)}));
+    if(MPC.some(c=>has("c"+c))||has("admin"))A("🤝","Nuevo proveedor","RIF, teléfono, días de entrega",'data-act="provnew"');if(!o.length)L("ccar","🛒","Órdenes de compra","");break;
+  case"rec":if(has("almmp")){ocs().filter(x=>x.est==="env").forEach(x=>A("📥","Recibir "+x.num,(provName(x.prov)||"")+" · temperatura, lote y vencimiento",`data-act="ocrec" data-id="${x.id}"`));if(!o.length)o.push({i:"✓",t:"No hay órdenes por recibir",s:"Compras debe enviar la orden primero"})}else L("almmp","📥","Recepción de materia prima","");break;
+  case"prod":if(has("cap")||has("cal")){ps.filter(p=>p.est==="apro").forEach(p=>A("▶️","Iniciar lote · "+dlab(p.fecha),"EPP, número de lote y maestro",`data-act="pstart" data-id="${p.id}"`));
+      ps.filter(p=>p.est==="proc").forEach(p=>{A("📋","Hoja de proceso · lote "+p.lote,"Registrar etapa y temperatura (PCC)",`data-act="pcc" data-id="${p.id}"`);A("🏁","Cerrar lote "+p.lote,"Masa, entregado y carne usada",`data-act="pclose" data-id="${p.id}"`)});
+      A("🌡️","Rutina variable de hoy","pH y temperatura de MP y producto",'data-act="rutadd"');if(!ps.some(p=>p.est==="apro"||p.est==="proc"))o.unshift({i:"ℹ️",t:"No hay lotes aprobados",s:"El plan debe estar aprobado para iniciar"})}else L("cap","▶️","Producción","");break;
+  case"empq":if(has("empq")){ps.filter(p=>p.est==="emp").forEach(p=>A("🏷️","Empacar lote "+p.lote,"Peso recibido, bolsas, etiquetas, sellado",`data-act="emp" data-id="${p.id}"`));if(!o.length)o.push({i:"✓",t:"Nada por empacar",s:"Aparece cuando producción cierra un lote"})}else L("empq","🏷️","Empaque","");
+    if(has("almpt"))A("📋","Conteo físico de producto terminado","Cava de PT",'data-act="conteo" data-cat="pt"');break;
+  case"cal":if(has("cal")){ps.filter(p=>p.est==="cerr"&&p.real&&!p.lib&&!p.ret).forEach(p=>A("🔬","Liberar o retener lote "+p.lote,dlab(p.fecha),`data-tab="cal" data-gosub="calv:lot"`));
+      mpFuera().forEach(x=>A("⚠️","Decidir recepción · "+MP(x.l.mp).n,"Fuera de rango en "+x.o.num,`data-tab="cal" data-gosub="calv:lot"`));A("🌡️","Rutina variable de hoy","pH y temperatura",'data-act="rutadd"')}
+    if(has("cal")||has("almmp")||has("almpt"))A("❄️","Temperatura de cavas","Mañana y tarde · PCC 2 y 7",'data-tab="cal" data-gosub="calv:cav"');if(!o.length)L("cal","🔬","Calidad","");break;
+  case"desp":if(has("desp")){const P=pendientes().filter(puedeDesp);P.slice(0,12).forEach(x=>A("🚚","Despachar "+x.id,(x.cli||x.cod||"")+" · "+nf(kgPed(x),0)+" kg",`data-act="desp" data-k="${esc(x.key)}"`));if(!P.length)o.push({i:"ℹ️",t:"Nada listo para despachar",s:"Falta producto terminado liberado"})}else L("desp","🚚","Despacho","");break;
+  }return o}
+function cargarSheet(k){const one=k&&k!=="home";const areas=one?[k]:areasOf(EU()).filter(a=>!NOLOAD[a]);
+  const blocks=areas.map(a=>{const o=loadOpts(a);if(!one&&!o.some(x=>x.at))return "";return `${one?"":`<div class="sec-t">${AREAS[a].ico} ${esc(AREAS[a].n)}</div>`}${o.map(x=>x.at?`<button class="task2 ld" ${x.at}><span class="ti blu">${x.i}</span><span class="tx">${esc(x.t)}<small>${esc(x.s)}</small></span>›</button>`:`<div class="task2 ld off"><span class="ti">${x.i}</span><span class="tx">${esc(x.t)}<small>${esc(x.lock||x.s)}</small></span></div>`).join("")}`}).join("");
+  openModal(`<div class="grab"></div><h3>➕ ${one?"Cargar datos · "+esc(AREAS[k].n):"¿Qué quieres cargar?"}</h3>${one&&NOLOAD[k]?`<div class="alert blu"><span>ℹ️</span><div>${NOLOAD[k]}</div></div>`:`<div class="muted" style="margin-bottom:8px">Toca lo que vas a registrar. Solo ves lo que te toca según tu rol.</div><div class="tasks">${blocks||`<div class="empty">No tienes nada que cargar ahora.</div>`}</div>`}`)}
+function pickSheet(c){const ids=c==="pt"?DATA.PT.map(p=>"PT:"+p.sku):DATA.MP.filter(m=>m.cat===c).map(m=>m.id);
+  openModal(`<div class="grab"></div><h3>↕️ ¿Qué producto?</h3><div class="muted">${CATS[c].n}</div><input id="pk_q" placeholder="🔎 Buscar…" style="margin:10px 0" autocomplete="off">
+  <div id="pk_l">${ids.map(id=>{const it=itemOf(id);return `<button class="irow" data-item="${id}" data-nm="${esc(it.n.toLowerCase())}"><div class="main"><div class="nm">${esc(it.n)}</div><div class="meta">Stock ${nf(stock(id),dec(it.u))} ${it.u}</div></div>›</button>`}).join("")}</div>`);
+  const q=$("#pk_q");q.addEventListener("input",()=>{const v=q.value.toLowerCase().trim();$$("#pk_l [data-nm]").forEach(b=>b.style.display=!v||b.dataset.nm.includes(v)?"":"none")})}
+function rpickSheet(){openModal(`<div class="grab"></div><h3>📖 ¿Qué receta?</h3><input id="pk_q" placeholder="🔎 Buscar…" style="margin:10px 0" autocomplete="off"><div id="pk_l">${DATA.F.map(f=>`<button class="irow" data-rec="${f.id}" data-nm="${esc(f.n.toLowerCase())}"><div class="main"><div class="nm">${esc(f.n)}</div><div class="meta">${esc(f.fam)}${F(f.id).ok?" · validada":" · sin validar"}</div></div>›</button>`).join("")}</div>`);
+  const q=$("#pk_q");q.addEventListener("input",()=>{const v=q.value.toLowerCase().trim();$$("#pk_l [data-nm]").forEach(b=>b.style.display=!v||b.dataset.nm.includes(v)?"":"none")})}
 
 /* ===================================================================== ACCIONES */
 document.addEventListener("click",e=>{
@@ -1136,6 +1186,11 @@ document.addEventListener("click",e=>{
   switch(a){
   case"lgback":LG={who:null,pin:"",err:""};render();break;
   case"menu":menuSheet();break;
+  case"cargar":track("cargar_datos",{area:UI.tab});cargarSheet(UI.tab);break;
+  case"ipick":pickSheet(d.cat);break;
+  case"inst":if(BIP){BIP.prompt();BIP.userChoice.then(c=>{track("app_instalada",{ok:c.outcome});BIP=null;render()})}break;
+  case"noinst":LS.set("meister_planta_noinst",1);render();break;
+  case"rpick":rpickSheet();break;
   case"cfg":cfgSheet();break;
   case"logout":closeModal();SES=null;LS.set(SKEY,null);loadDB();try{posthog.reset()}catch(x){}render();break;
   case"refresh":pull();fetchVend(true);toast("Actualizando…");break;
@@ -1225,6 +1280,7 @@ document.addEventListener("click",e=>{
     (st.f||[]).forEach(x=>{const el=$(`[data-pcf="${l}|${k}|${x.k}"]`);const v=el?num(el.value):null;if(v!=null)r.v[x.k]=v});
     const missing=(st.f||[]).filter(x=>!x.opt&&r.v[x.k]==null);if(missing.length)return toast("Falta: "+missing.map(x=>x.n).join(", "));
     const se=$(`[data-pcs="${l}|${k}"]`);if(se)r.sel=se.value;const ch=$(`[data-pcc="${l}|${k}"]`);if(ch)r.chk=ch.checked;r.acc=($(`[data-pca="${l}|${k}"]`)||{}).value||"";r.acc=r.acc.trim();
+    r.op=(($(`[data-pco="${l}|${k}"]`)||{}).value||"").trim();if(r.op){const m=LS.get("meister_planta_op")||{};m[l+"|"+k]=r.op;LS.set("meister_planta_op",m);if(!OPS().includes(r.op)&&!PEOPLE.some(x=>x.n===r.op))setCfg("ops",OPS().concat(r.op))}
     if(!pccVal(st,r)&&!r.acc)return toast("Fuera de límite: escribe la acción correctiva");
     if(st.h24){const du=((p.pcc||{})[l]||{}).duch;if(du&&Date.now()-du.ts<24*36e5&&!confirm("Lleva "+nf((Date.now()-du.ts)/36e5,1)+" h desde la ducha. El flujograma pide 24 h en cava. ¿Registrar igual?"))return}
     p.pcc=p.pcc||{};p.pcc[l]=p.pcc[l]||{};p.pcc[l][k]=r;put("plan",p);track("pcc_registrado",{etapa:k,ok:pccVal(st,r)});commit();pccSheet(p.id);toast(pccVal(st,r)?"Etapa registrada":"Registrada con acción correctiva");break}
@@ -1257,7 +1313,7 @@ document.addEventListener("click",e=>{
     download("meister-planta-movimientos-"+today()+".csv",rows);track("csv_descargado");break}
   case"cfgsave":{const r={};Object.entries(UI.rt).forEach(([p,rs])=>r[p]=rs.slice());setCfg("roles",r);
     setCfg("eq",EQ().map((e,i)=>Object.assign({},e,{kgh:num($(`[data-eqk="${i}"]`).value)||e.kgh,h:num($(`[data-eqh="${i}"]`).value)||e.h})));
-    const cb=num($("#cf_cob").value);setCfg("cobDias",cb==null?2:cb);setCfg("capSem",num($("#cf_sem").value)||8000);const g=k=>num($(k).value);setCfg("qc",{mpPh:[g("#q_mp0")??QCD.mpPh[0],g("#q_mp1")??QCD.mpPh[1]],mpT:g("#q_mpt")??QCD.mpT,mpTmin:QCD.mpTmin,mpTc:QCD.mpTc,prPh:[g("#q_pr0")??QCD.prPh[0],g("#q_pr1")??QCD.prPh[1]],prT:g("#q_prt")??QCD.prT,merma:g("#q_mer")??QCD.merma});if(g("#q_lote"))setCfg("nextLote",Math.round(g("#q_lote")));closeModal();track("config_guardada");commit();toast("Configuración guardada");break}
+    const cb=num($("#cf_cob").value);setCfg("cobDias",cb==null?2:cb);setCfg("capSem",num($("#cf_sem").value)||8000);const g=k=>num($(k).value);setCfg("qc",{mpPh:[g("#q_mp0")??QCD.mpPh[0],g("#q_mp1")??QCD.mpPh[1]],mpT:g("#q_mpt")??QCD.mpT,mpTmin:QCD.mpTmin,mpTc:QCD.mpTc,prPh:[g("#q_pr0")??QCD.prPh[0],g("#q_pr1")??QCD.prPh[1]],prT:g("#q_prt")??QCD.prT,merma:g("#q_mer")??QCD.merma});if(g("#q_lote"))setCfg("nextLote",Math.round(g("#q_lote")));setCfg("ops",[...new Set($("#cf_ops").value.split("\n").map(x=>x.trim()).filter(Boolean))]);closeModal();track("config_guardada");commit();toast("Configuración guardada");break}
   case"demo":closeModal();demo();break;
   case"simped":closeModal();simPedidos(8);commit();toast("8 pedidos simulados para mañana");break;
   case"as":SES.as=d.as||null;LS.set(SKEY,SES);UI.tab="home";track("ver_como",{como:SES.as||"todos"});render();window.scrollTo(0,0);break;
@@ -1504,12 +1560,12 @@ function pccVal(st,r){if(!r)return null;let ok=true;(st.f||[]).forEach(x=>{const
 function pccEstado(p){const L=lineasPlan(p);let n=0,d=0,bad=0,falta=[];L.forEach(l=>PCCL[l].st.forEach(st=>{n++;const r=((p.pcc||{})[l]||{})[st.k];if(r){d++;if(!pccVal(st,r))bad++}else if(st.req)falta.push(PCCL[l].st.length>3?st.n:st.n)}));return{n,d,bad,falta,L}}
 function etapaProc(p){const L=lineasPlan(p);const has_=k=>L.every(l=>!PCCL[l].st.some(s=>s.k===k)||((p.pcc||{})[l]||{})[k]);if(L.length&&has_("cava"))return"Listo para empaque";if(L.some(l=>((p.pcc||{})[l]||{}).duch||((p.pcc||{})[l]||{}).term))return"Enfriamiento (ducha y cava 24 h)";if(L.some(l=>Object.keys((p.pcc||{})[l]||{}).length))return"Elaboración";return"Por arrancar"}
 function pccSheet(id){const p=DB.plan[id];const ed=has("cap")||has("cal");const L=lineasPlan(p);
-  openModal(`<div class="grab"></div><h3>📋 Hoja de proceso · Lote ${esc(p.lote||p.num)}</h3><div class="muted">Según el Flujograma estructurado Meister. Registra cada etapa al terminarla. Si un valor sale del límite, anota la acción correctiva.</div>
+  openModal(`<div class="grab"></div><h3>📋 Hoja de proceso · Lote ${esc(p.lote||p.num)}</h3><div class="muted">Según el Flujograma estructurado Meister. Registra cada etapa al terminarla. Si un valor sale del límite, anota la acción correctiva. Escribe quién hizo cada etapa.</div>${opsList()}
   ${L.map(l=>`<div class="sec-t">${esc(PCCL[l].n)}</div>${PCCL[l].st.map(st=>{const r=((p.pcc||{})[l]||{})[st.k];const ok=pccVal(st,r);
-    if(r)return `<div class="pccrow ${ok?"ok":"bad"}"><div class="main"><b>${ok?"✓":"✗"} ${esc(st.n)}</b>${st.pcc?` <span class="chip ${ok?"c-grn":"c-red"}">${typeof st.pcc==="number"?"PCC "+st.pcc:"Control crítico"}</span>`:""}<small>${[r.sel,(st.f||[]).filter(x=>r.v&&r.v[x.k]!=null).map(x=>x.n.replace(" °C","")+": "+fx(r.v[x.k])+(x.k==="t"?" °C":"")).join(" · "),r.v&&r.v.kg0&&r.v.kg1?"inyección "+pct(r.v.kg1/r.v.kg0-1):"",r.acc?"Acción: "+r.acc:""].filter(Boolean).map(esc).join(" · ")} · ${hhmm(r.ts)} ${dlab(iso(r.ts))} · ${esc(nameOf(r.by))}</small></div></div>`;
+    if(r)return `<div class="pccrow ${ok?"ok":"bad"}"><div class="main"><b>${ok?"✓":"✗"} ${esc(st.n)}</b>${st.pcc?` <span class="chip ${ok?"c-grn":"c-red"}">${typeof st.pcc==="number"?"PCC "+st.pcc:"Control crítico"}</span>`:""}<small>${[r.sel,(st.f||[]).filter(x=>r.v&&r.v[x.k]!=null).map(x=>x.n.replace(" °C","")+": "+fx(r.v[x.k])+(x.k==="t"?" °C":"")).join(" · "),r.v&&r.v.kg0&&r.v.kg1?"inyección "+pct(r.v.kg1/r.v.kg0-1):"",r.acc?"Acción: "+r.acc:""].filter(Boolean).map(esc).join(" · ")} · ${hhmm(r.ts)} ${dlab(iso(r.ts))} · ${esc(quien(r))}</small></div></div>`;
     return `<div class="pccrow"><div class="main"><b>${esc(st.n)}</b>${st.pcc?` <span class="chip c-amb">${typeof st.pcc==="number"?"PCC "+st.pcc:"Control crítico"}</span>`:""}${st.req?` <span class="chip">obligatorio</span>`:""}<small>${esc(st.d)}</small>
       ${ed?`<div class="pccf">${st.sel?`<select data-pcs="${l}|${st.k}">${st.sel.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`:""}${(st.f||[]).map(x=>`<input type="number" step="0.1" inputmode="decimal" placeholder="${esc(x.n)}" data-pcf="${l}|${st.k}|${x.k}">`).join("")}${st.chk?`<label class="chk" style="border:0;padding:4px 0"><input type="checkbox" data-pcc="${l}|${st.k}" checked> ${esc(st.chk)}</label>`:""}
-      <input placeholder="Acción correctiva (si algo no cumple)" data-pca="${l}|${st.k}"><button class="btn sm" data-act="pccsave" data-id="${id}" data-k="${l}|${st.k}">Registrar</button></div>`:""}</div></div>`}).join("")}`).join("")}`)}
+      <input list="opsl" placeholder="¿Quién la hizo? (operario)" value="${esc(lastOp(l+"|"+st.k))}" data-pco="${l}|${st.k}"><input placeholder="Acción correctiva (si algo no cumple)" data-pca="${l}|${st.k}"><button class="btn sm" data-act="pccsave" data-id="${id}" data-k="${l}|${st.k}">Registrar</button></div>`:""}</div></div>`}).join("")}`).join("")}`)}
 /* temperatura de cavas (PCC 2 y PCC 7) */
 const CAVAS=[{k:"mpr",n:"Cava MP refrigerada",max:5},{k:"mpc",n:"Cava de congelación",max:-18},{k:"enf",n:"Cava de enfriamiento",max:6},{k:"ptc",n:"Cava de producto terminado",max:5}];
 function cavasView(){const t=today();const r=DB.cav[t];const ed=has("cal")||has("almmp")||has("almpt");const hist=live(DB.cav).sort((a,b)=>b.id.localeCompare(a.id)).slice(0,10);
@@ -1520,6 +1576,8 @@ function cavasView(){const t=today();const r=DB.cav[t];const ed=has("cal")||has(
   ${hist.filter(h=>h.id!==t).map(h=>{const n=h.l.filter(bad).length;return `<div class="irow" style="cursor:default"><span class="dot ${n?"r":"g"}"></span><div class="main"><div class="nm">${dlab(h.id)}</div><div class="meta">${h.l.length} lecturas</div></div><div class="amt"><b class="${n?"neg":"pos"}">${n}</b>fuera</div></div>`}).join("")}`}
 function piezasAgenda(p){const L=lineasPlan(p);if(!L.includes("pie"))return "";const back=n=>{let x=p.fecha,k=0;while(k<n){x=addD(x,-1);const w=new Date(x+"T12:00:00").getDay();if(w>0&&w<6)k++}return x};
   return `<div class="alert amb"><span>🥩</span><div><b>Línea de piezas:</b> descongelar el ${dlab(back(3))}, desposte el ${dlab(back(2))}, inyección el ${dlab(back(1))} y cocción el ${dlab(p.fecha)}. El lote se inicia el día de descongelar.</div></div>`}
+/* sin señal: guarda la app en el teléfono */
+if("serviceWorker" in navigator&&location.protocol==="https:")window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
 </script>
 </body>
