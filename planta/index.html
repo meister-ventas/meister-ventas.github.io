@@ -412,7 +412,7 @@ const ROLES = {
   admin:{n:"Administrador",i:"⚙️",d:"Asigna roles y configura equipos"}
 };
 const PEOPLE = [{id:"giovanni",n:"Giovanni",tit:"Maestro Charcutero"},{id:"leyci",n:"Leyci Sánchez",tit:"Ing. de Alimentos"},{id:"lorenzo",n:"Lorenzo"},{id:"beatriz",n:"Beatriz Ramírez"},{id:"juan",n:"Juan"},{id:"antonio",n:"Antonio"},{id:"william",n:"William",tit:"Empaque y PT"},{id:"gerencia",n:"Gerencia"},{id:"oficina",n:"Oficina"},{id:"prueba",n:"Modo prueba",test:true}];
-const DEF_ROLES = {giovanni:["cap","receta","cal"],leyci:["cap","cal"],william:["empq","almpt"],lorenzo:["almmp","desp"],beatriz:["cnoc","clim"],juan:["ccar"],antonio:["plan","cemp"],gerencia:["apro","admin"],oficina:["ofi"]};
+const DEF_ROLES = {giovanni:["cap","receta","cal"],leyci:["cap","plan","cal"],william:["empq","almpt"],lorenzo:["almmp","desp"],beatriz:["cnoc","clim"],juan:["ccar"],antonio:["plan","cemp"],gerencia:["apro","admin"],oficina:["ofi"]};
 const AREA_ROLES = {ped:["plan","apro","desp","cap","ofi"],verif:["plan","cap","almpt"],plan:["plan","cap","apro"],exp:["plan","cap","receta","ccar","cnoc","cemp"],comp:["ccar","cnoc","cemp","clim","admin"],empq:["empq","almpt"],transito:["cap","cal","empq","almpt","plan","desp"],rec:["almmp"],prod:["cap","cal"],cal:["cal"],desp:["desp","ofi"]};
 const ROLE_HOME = {cal:["cal","prod","exp"],receta:["exp"],plan:["plan","exp","verif"],cap:["prod","plan","verif"],apro:["plan","bal"],almmp:["rec","inv"],almpt:["inv","verif"],desp:["desp","ped"],ccar:["comp","exp"],cnoc:["comp","exp"],cemp:["comp","exp"],clim:["comp"],empq:["empq","transito"],ofi:["ped","desp"],admin:["bal"]};
 const AREA_OWN = {ped:["ofi","plan"],verif:["almpt","cap"],plan:["plan","cap","apro"],exp:["plan"],inv:["almmp","almpt"],comp:["ccar","cnoc","cemp","clim"],rec:["almmp"],prod:["cap"],transito:["cap","empq"],empq:["empq","almpt"],cal:["cal"],desp:["desp"],bal:[]};
@@ -496,7 +496,7 @@ const dec = u => (u==="kg"||u==="L")?1:0;
 
 /* ---------- roles y permisos ---------- */
 const person = id => PEOPLE.find(p=>p.id===id);
-function rolesOf(pid){if(pid==="prueba")return Object.keys(ROLES);const r=DB.cfg.roles&&DB.cfg.roles[pid];return r||DEF_ROLES[pid]||[]}
+function rolesOf(pid){if(DB.cfg.roles&&!DB.cfg.rv2){DB.cfg.rv2=1;const l=DB.cfg.roles.leyci;if(l&&!l.includes("plan"))l.push("plan")}if(pid==="prueba")return Object.keys(ROLES);const r=DB.cfg.roles&&DB.cfg.roles[pid];return r||DEF_ROLES[pid]||[]}
 const EU = () => SES ? (SES.u==="prueba"&&SES.as?SES.as:SES.u) : null;
 const has = r => !!SES && rolesOf(EU()).includes(r);
 const cargo = pid => pid==="prueba" ? "Prueba todas las áreas (1 persona)" : ((person(pid)&&person(pid).tit?person(pid).tit+" · ":"")+rolesOf(pid).filter(r=>r!=="admin").map(r=>ROLES[r].n).join(" · ") || (rolesOf(pid).includes("admin")?"Administrador":"Sin rol asignado"));
@@ -603,6 +603,8 @@ function expTable(plan){
 }
 function curPlan(openOnly){const ps=planes();const p=UI.plan&&DB.plan[UI.plan]&&!DB.plan[UI.plan]._del?DB.plan[UI.plan]:null;if(p&&(!openOnly||p.est!=="cerr"))return p;return ps.slice().reverse().find(x=>x.est!=="cerr"&&x.fecha>=today())||ps.find(x=>x.est!=="cerr")}
 function nextWork(d,n){let x=d;let k=0;while(k<n){x=addD(x,1);const w=new Date(x+"T12:00:00").getDay();if(w>0&&w<6)k++}return x}
+const armo = p => {const h=(p.hist||[]).filter(x=>x.est==="rev").slice(-1)[0];return h?h.by:null};
+const propio = p => !isTest() && armo(p)===SES.u;
 function planHist(p,est,nota){(p.hist=p.hist||[]).push({est,by:SES.u,ts:Date.now(),nota:nota||""});p.est=est}
 
 /* ---------- compras y proveedores ---------- */
@@ -692,7 +694,7 @@ function myTasks(S){
   const t=[];const ps=planes();const by=e=>ps.filter(p=>p.est===e);
   if(has("plan")){by("borr").forEach(p=>{const dv=(p.hist||[]).slice(-1)[0];const devuelto=dv&&dv.est==="borr"&&dv.nota;t.push({plan:p.id,i:"🗓️",c:devuelto?"red":"amb",t:(devuelto?"Plan devuelto: ":"Enviar a revisión el plan del ")+dlab(p.fecha),s:devuelto?"“"+dv.nota+"”":nf(planKg(p),0)+" kg en borrador"})});
     if(!ps.some(p=>p.est!=="cerr")&&S.verif.n)t.push({tab:"plan",i:"🗓️",c:"red",t:"Armar el plan de producción",s:S.verif.s})}
-  if(has("cap"))by("rev").forEach(p=>t.push({plan:p.id,i:"🏭",c:"amb",t:"Confirmar capacidad del plan del "+dlab(p.fecha),s:nf(planKg(p),0)+" kg · cuello: "+capInfo(p.lines).worst.n}));
+  if(has("cap"))by("rev").filter(p=>!propio(p)).forEach(p=>t.push({plan:p.id,i:"🏭",c:"amb",t:"Confirmar capacidad del plan del "+dlab(p.fecha),s:nf(planKg(p),0)+" kg · cuello: "+capInfo(p.lines).worst.n}));
   if(has("apro"))by("cap").forEach(p=>t.push({plan:p.id,i:"✅",c:"amb",t:"Aprobar el plan del "+dlab(p.fecha),s:nf(planKg(p),0)+" kg · capacidad confirmada"}));
   if(has("cap")){by("apro").forEach(p=>t.push({tab:"prod",i:"▶️",c:"amb",t:"Iniciar producción del "+dlab(p.fecha),s:nf(planKg(p),0)+" kg aprobados"}));by("proc").forEach(p=>t.push({tab:"prod",i:"🏁",c:"blu",t:"Cerrar el lote "+(p.lote||""),s:"Registra masa, horno y empacado"}))}
   if(has("empq"))planes().filter(p=>p.est==="emp").forEach(p=>t.unshift({tab:"empq",i:"🏷️",c:"red",t:"Empacar el lote "+p.lote,s:"Pesar lo recibido, bolsas y etiquetas"}));
@@ -788,7 +790,7 @@ function planDia(){
   ${ed?`<button class="btn sec full" data-act="paddf">＋ Agregar producto</button>
     <div style="display:flex;gap:8px;margin-top:12px"><button class="btn sec" style="flex:1" data-tab="exp">🧮 Materiales</button><button class="btn" style="flex:1.4" data-act="psend" ${kg>0?"":"disabled"}>📤 Enviar a revisión</button></div>
     <button class="btn ghost full" data-act="pdel">Descartar este plan</button>`:""}
-  ${cur.est==="rev"?(has("cap")?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn sec" style="flex:1" data-act="pback">↩️ Devolver</button><button class="btn" style="flex:1.4" data-act="pcap">🏭 Confirmar capacidad</button></div>`:`<div class="alert amb"><span>⏳</span><div>Esperando que producción confirme la capacidad.</div></div>`):""}
+  ${cur.est==="rev"?(has("cap")&&propio(cur)?`<div class="alert amb"><span>🤝</span><div>Tú armaste este plan: la capacidad la confirma otro jefe de producción (${esc(holders("cap").filter(n=>n!==nameOf(SES.u)).join(" o ")||"Giovanni")}).</div></div>`:has("cap")?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn sec" style="flex:1" data-act="pback">↩️ Devolver</button><button class="btn" style="flex:1.4" data-act="pcap">🏭 Confirmar capacidad</button></div>`:`<div class="alert amb"><span>⏳</span><div>Esperando que producción confirme la capacidad.</div></div>`):""}
   ${cur.est==="cap"?(has("apro")?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn sec" style="flex:1" data-act="pback">↩️ Devolver</button><button class="btn" style="flex:1.4" data-act="papro">✅ Aprobar plan</button></div>`:`<div class="alert amb"><span>⏳</span><div>Capacidad confirmada. Falta la aprobación de ${esc(holders("apro").join(" · ")||"Gerencia")}.</div></div>`):""}
   ${cur.est==="apro"?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn sec" style="flex:1" data-tab="exp">🧮 Materiales</button><button class="btn" style="flex:1" data-tab="prod">🏭 Producción</button></div>${has("plan")?`<button class="btn ghost full" data-act="preopen">Volver a borrador</button>`:""}`:""}
   ${(cur.hist||[]).length?`<div class="sec-t">Historial</div><div class="mvl" style="border:0;margin:0">${cur.hist.map(h=>`<div><span>${PEST[h.est][0]} · ${esc(nameOf(h.by))}${h.nota?" · “"+esc(h.nota)+"”":""}</span><span class="muted">${dlab(iso(h.ts))} ${hhmm(h.ts)}</span></div>`).join("")}</div>`:""}
@@ -1206,7 +1208,7 @@ document.addEventListener("click",e=>{
   case"paddf":openModal(`<div class="grab"></div><h3>Agregar producto al plan</h3>${FAMS.map(fm=>`<div class="sec-t">${fm}</div>${DATA.F.filter(f=>f.fam===fm).map(f=>`<button class="irow" data-act="paddok" data-f="${f.id}"><div class="main"><div class="nm">${esc(f.n)}</div><div class="meta">Lote ${F(f.id).lote} kg</div></div>＋</button>`).join("")}`).join("")}`);break;
   case"paddok":{const p=P();addF(p,d.f,F(d.f).lote);put("plan",p);closeModal();commit();break}
   case"psend":{const p=P();Object.keys(p.lines).forEach(f=>{if(!(p.lines[f]>0))delete p.lines[f]});planHist(p,"rev");put("plan",p);track("plan_enviado",{kg:planKg(p)});commit();toast("Enviado · producción confirma la capacidad");break}
-  case"pcap":{const p=P();planHist(p,"cap");put("plan",p);track("plan_capacidad_ok");commit();toast("Capacidad confirmada · falta la aprobación");break}
+  case"pcap":{const p=P();if(propio(p))return toast("Tú armaste este plan: la capacidad la confirma otro jefe de producción");planHist(p,"cap");put("plan",p);track("plan_capacidad_ok");commit();toast("Capacidad confirmada · falta la aprobación");break}
   case"papro":{const p=P();planHist(p,"apro");put("plan",p);track("plan_aprobado",{kg:planKg(p)});commit();toast("Plan aprobado · producción ya lo puede iniciar");break}
   case"pback":openModal(`<div class="grab"></div><h3>Devolver el plan</h3><div class="muted">Explica qué hay que cambiar.</div><input id="pb_n" placeholder="Ej. El horno no da; pasa los jamones al jueves" style="margin-top:10px"><button class="btn full big" style="margin-top:10px" data-act="pbackok">↩️ Devolver al planificador</button>`);break;
   case"pbackok":{const n=$("#pb_n").value.trim();if(!n)return toast("Escribe el motivo");const p=P();planHist(p,"borr",n);put("plan",p);closeModal();track("plan_devuelto");commit();toast("Plan devuelto");break}
