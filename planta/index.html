@@ -355,6 +355,10 @@ body:has(#mdl) .bkpill{display:none}
 .fab:active{transform:scale(.96)}
 main{padding-bottom:150px!important}
 .task2.ld{width:100%}.task2.ld.off{opacity:.55;cursor:default}
+.ppin{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px}
+.ppin label{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--mut,#666)}
+.ppin input{width:74px;padding:8px;text-align:center}
+.cprov{width:100%;margin:-2px 0 10px;padding:7px 10px;font-size:13px}
 
 </style>
 </head>
@@ -487,7 +491,16 @@ const quien = r => r.op ? r.op+(r.op!==nameOf(r.by)?" (anotó "+nameOf(r.by)+")"
 const fx = n => String(n).replace(".",",");
 
 /* maestro con ajustes */
-function MP(id){const b=MPD[id];const o=DB.items[id]||{};return b?Object.assign({},b,o.min!=null?{min:o.min}:{},o.cost!=null?{cost:o.cost}:{}):null}
+function MP(id){const b=MPD[id];const o=DB.items[id]||{};return b?Object.assign({},b,o.min!=null?{min:o.min}:{},o.cost!=null?{cost:o.cost}:{},{cpb:o.cpb,mpb:o.mpb,upq:o.upq,ppb:o.ppb,prov:o.prov}):null}
+/* presentaciones: tripas por bulto, cajas y metros; bolsas por unidad, paquete y bulto */
+const isTripa = id => /^T\d/.test(id) && MPD[id] && MPD[id].u==="bulto";
+const isBag = id => DATA.BAGS.includes(id);
+function PRES(id){if(id.startsWith("PT:"))return null;const m=MP(id);if(!m)return null;
+  if(isTripa(id)){const c=m.cpb??6,me=m.mpb??8686;return [{n:"bultos",f:1},c>0&&{n:"cajas",f:1/c},me>0&&{n:"metros",f:1/me}].filter(Boolean)}
+  if(isBag(id)){const u=m.upq||0,b=m.ppb||0;return [{n:"unidades",f:1},u>0&&{n:"paquetes",f:u},u>0&&b>0&&{n:"bultos",f:u*b}].filter(Boolean).reverse()}return null}
+function fmtQ(id,q){const P=PRES(id);const it=itemOf(id);if(!P||P.length<2)return nf(q,dec(it.u))+" "+it.u;let r=Math.max(0,q);const big=P.slice().sort((a,b)=>b.f-a.f);const out=[];
+  big.forEach((u,i)=>{const last=i===big.length-1;const k=last?Math.round(r/u.f):Math.floor(r/u.f+1e-9);if(k>0){out.push(nf(k,0)+" "+(k===1?({bultos:"bulto",cajas:"caja",metros:"metro",paquetes:"paquete",unidades:"unidad"}[u.n]||u.n):u.n));r-=k*u.f}});return (q<0?"−":"")+(out.join(" · ")||"0 "+it.u)}
+function presIn(key,id){const P=PRES(id);return `<div class="ppin">${P.map(u=>`<label><input type="number" step="any" inputmode="decimal" data-pp="${key}|${u.f}" placeholder="–"><span>${u.n}</span></label>`).join("")}</div><div class="muted" data-ppl="${key}" style="font-size:12px"></div>`}
 function PT(sku){const b=PTD[sku];const o=DB.items["PT:"+sku]||{};return b?Object.assign({},b,o.min!=null?{min:o.min}:{},o.vida?{vida:o.vida}:{}):null}
 function F(id){const b=FD[id];const o=DB.rec[id];return b?Object.assign({},b,o&&!o._del?{lines:o.lines,rend:o.rend!=null?o.rend:b.rend,lote:o.lote||b.lote,ok:o.ok,prop:o.prop}:{}):null}
 const itemOf = id => id.startsWith("PT:") ? PT(id.slice(3)) : MP(id);
@@ -857,25 +870,26 @@ function invView(){
   return `<div class="chips">${[...MPC,"pt"].map(k=>`<button class="${k===c?"on":""}" data-sub="inv:${k}">${CATS[k].ico} ${CATS[k].s}${can.inv(k)?" ✎":""}</button>`).join("")}</div>
   <div class="mini"><div><b class="${bajo?"neg":""}">${bajo}</b><span>bajo colchón</span></div><div><b class="${venc?"neg":""}">${venc}</b><span>lotes por vencer</span></div><div><b>${usd0(val)}</b><span>valor a costo</span></div></div>
   ${ed?`<button class="btn full" data-act="conteo" data-cat="${c}">📋 Conteo físico de ${CATS[c].s.toLowerCase()}</button>`:`<div class="alert blu"><span>👀</span><div>Solo consulta. Lo cuenta ${esc(holders(c==="pt"?"almpt":"almmp").join(" · ")||"Almacén")}. Compras ordena; Almacén recibe y cuenta.</div></div>`}
-  <div style="margin-top:10px">${rows.map(r=>{const p=r.it.min?Math.min(100,r.s/(r.it.min*2)*100):100;return `<button class="irow" data-item="${r.id}"><span class="dot ${r.lv}"></span><div class="main"><div class="nm">${esc(r.it.n)}${c==="pt"&&r.it.pres==="auto"?" (paq.)":""}</div><div class="meta">Colchón ${nf(r.it.min,0)} ${r.it.u}${c==="pt"?" · "+esc(r.it.sku):r.it.nota?" · "+esc(r.it.nota):""}${r.pv?` <span class="chip c-red">⏳ ${r.pv} por vencer</span>`:""}</div><div class="sbar"><span style="width:${Math.max(2,p)}%;background:${r.lv==="r"?"var(--red)":r.lv==="a"?"#d9a23a":"var(--grn)"}"></span></div></div><div class="amt"><b>${nf(r.s,dec(r.it.u))}</b>${r.it.u}</div></button>`}).join("")||`<div class="empty">Sin existencias.</div>`}</div>`;
+  <div style="margin-top:10px">${rows.map(r=>{const p=r.it.min?Math.min(100,r.s/(r.it.min*2)*100):100;return `<button class="irow" data-item="${r.id}"><span class="dot ${r.lv}"></span><div class="main"><div class="nm">${esc(r.it.n)}${c==="pt"&&r.it.pres==="auto"?" (paq.)":""}</div><div class="meta">Colchón ${nf(r.it.min,0)} ${r.it.u}${c==="pt"?" · "+esc(r.it.sku):(r.it.prov?" · "+esc(r.it.prov):"")+(r.it.nota?" · "+esc(r.it.nota):"")}${r.pv?` <span class="chip c-red">⏳ ${r.pv} por vencer</span>`:""}</div><div class="sbar"><span style="width:${Math.max(2,p)}%;background:${r.lv==="r"?"var(--red)":r.lv==="a"?"#d9a23a":"var(--grn)"}"></span></div></div><div class="amt">${PRES(r.id)&&PRES(r.id).length>1?`<b style="font-size:13px">${fmtQ(r.id,r.s)}</b>`:`<b>${nf(r.s,dec(r.it.u))}</b>${r.it.u}`}</div></button>`}).join("")||`<div class="empty">Sin existencias.</div>`}</div>`;
 }
 function itemSheet(id){const it=itemOf(id);const c=catOf(id);const ed=can.inv(c);
   const mv=live(DB.mov).filter(m=>m.item===id).sort((a,b)=>b.ts-a.ts).slice(0,12);const L=lotsOf(id);const pr=c!=="pt"?precios(id).slice(0,5):[];const lim=Math.max(3,Math.round((it.vida||90)*0.15));
   openModal(`<div class="grab"></div><h3>${esc(it.n)}</h3><div class="muted">${CATS[c].n}${c==="pt"?" · "+esc(it.sku)+" · vida útil "+it.vida+" días":""}${it.nota?" · "+esc(it.nota):""}</div>
-  <div class="balk" style="margin-top:12px"><div class="dk"><span>Stock</span><b>${nf(stock(id),2)} ${it.u}</b></div><div><span>Colchón (mínimo)</span><b>${nf(it.min,0)} ${it.u}</b></div></div>
+  ${it.prov?`<div class="muted">Proveedor: <b>${esc(it.prov)}</b></div>`:""}<div class="balk" style="margin-top:12px"><div class="dk"><span>Stock</span><b>${PRES(id)?fmtQ(id,stock(id)):nf(stock(id),2)+" "+it.u}</b></div><div><span>Colchón (mínimo)</span><b>${nf(it.min,0)} ${it.u}</b></div></div>
   <div class="sec-t">Lotes (sale primero el que vence antes)</div><div class="mvl" style="margin-top:0">${L.map(l=>{const d=daysLeft(l.vence);return `<div><span><b>${esc(l.lote)}</b>${libre(id,l)?"":` <span class="chip c-amb">🔬 en cuarentena</span>`}${l.vence?" · vence "+fcorta(l.vence):""}${d!=null?` <span class="chip ${d<0?"c-red":d<=lim?"c-amb":""}">${d<0?"vencido":d+" días"}</span>`:""}</span><b>${nf(l.q,2)}</b></div>`}).join("")||`<div><span class="muted">Sin lotes con existencia</span></div>`}</div>
   ${ed?`<div class="seg" id="iseg" style="margin-top:12px"><button class="on" data-iop="cnt">Conteo</button><button data-iop="in">Entrada</button><button data-iop="out">Salida / merma</button></div>
-    <label class="f" id="ilab">¿Cuánto hay contado físicamente?</label><input id="iq" type="number" step="any" inputmode="decimal" placeholder="${it.u}">
-    <div id="ilote" style="display:none;gap:8px"><div style="flex:1"><label class="f">Lote</label><input id="il" placeholder="Opcional"></div><div style="flex:1"><label class="f">Vence</label><input id="iv" type="date"></div></div>
+    <label class="f" id="ilab">¿Cuánto hay contado físicamente?</label>${PRES(id)?`<input type="hidden" id="iq" data-ppt="iq" data-ppid="${id}">${presIn("iq",id)}`:`<input id="iq" type="number" step="any" inputmode="decimal" placeholder="${it.u}">`}
+    <div id="ilote" style="display:none;gap:8px;flex-wrap:wrap"><div style="flex:1"><label class="f">Lote</label><input id="il" placeholder="Opcional"></div><div style="flex:1"><label class="f">Vence</label><input id="iv" type="date"></div>${c!=="pt"?`<div style="flex-basis:100%"><label class="f">Proveedor</label><input id="ip" list="provl" value="${esc(it.prov||"")}" placeholder="Nombre del proveedor"></div>`:""}</div>${provList()}
     <input id="inota" placeholder="Nota o motivo (opcional)" style="margin-top:8px">
     <button class="btn full big" style="margin-top:10px" data-act="isave" data-id="${id}">Guardar</button>`:`<div class="muted" style="margin-top:10px">Solo consulta: lo ajusta Almacén.</div>`}
+  ${(isTripa(id)||isBag(id))&&(ed||can.min(c))?(isTripa(id)?`<label class="f">Presentación del bulto</label><div class="ppin"><label><span>1 bulto =</span></label><label><input id="pcpb" type="number" value="${it.cpb??6}"><span>cajas</span></label><label><input id="pmpb" type="number" value="${it.mpb??8686}"><span>metros</span></label></div><button class="btn sec full" style="margin-top:6px" data-act="ipres" data-id="${id}">Guardar presentación</button>`:`<label class="f">Presentación</label><div class="ppin"><label><span>1 paquete =</span></label><label><input id="pupq" type="number" value="${it.upq||""}" placeholder="?"><span>unidades</span></label><label><span>1 bulto =</span></label><label><input id="pppb" type="number" value="${it.ppb||""}" placeholder="?"><span>paquetes</span></label></div><button class="btn sec full" style="margin-top:6px" data-act="ipres" data-id="${id}">Guardar presentación</button>`):""}
   ${can.min(c)?`<label class="f">Colchón (stock mínimo)</label><div style="display:flex;gap:8px"><input id="imin" type="number" value="${it.min}"><button class="btn sec" data-act="imin" data-id="${id}">Cambiar</button></div>`:""}
   ${c!=="pt"&&can.cost(c)?`<label class="f">Costo de referencia ($/${it.u})</label><div style="display:flex;gap:8px"><input id="icost" type="number" step="any" value="${it.cost}"><button class="btn sec" data-act="icost" data-id="${id}">Cambiar</button></div>`:""}
   ${pr.length?`<div class="sec-t">Últimos precios de compra</div><div class="mvl" style="margin-top:0">${pr.map(x=>`<div><span>${fcorta(x.f)} · ${esc(x.prov||"—")} · ${esc(x.oc)}</span><b>${usd(x.p)}</b></div>`).join("")}</div>`:""}
   <div class="sec-t">Últimos movimientos</div><div class="mvl" style="margin-top:0">${mv.map(m=>`<div><span>${dlab(m.fecha)} · ${TIPOS[m.tipo]||m.tipo}${m.ref?" · "+esc(m.ref):""}${m.lote&&m.lote!=="SIN-LOTE"?" · "+esc(m.lote):""} · ${esc(nameOf(m.by))}</span><b class="${m.q>0?"pos":"neg"}">${m.q>0?"+":""}${nf(m.q,2)}</b></div>`).join("")||`<div><span class="muted">Sin movimientos</span></div>`}</div>`);UI.iop="cnt"}
 function conteoSheet(c){const ids=c==="pt"?DATA.PT.map(p=>"PT:"+p.sku):DATA.MP.filter(m=>m.cat===c).map(m=>m.id);
   openModal(`<div class="grab"></div><h3>Conteo físico · ${CATS[c].n}</h3><div class="muted">Escribe lo que cuentas. Deja vacío lo que no contaste. La diferencia queda como ajuste: si sobra, entra como lote nuevo; si falta, sale del lote más viejo.</div>
-  <div style="margin-top:8px">${ids.map(id=>{const it=itemOf(id);return `<div class="qrow"><div class="main">${esc(it.n)}${c==="pt"&&it.pres==="auto"?" (paq.)":""}<small>Sistema: ${nf(stock(id),2)} ${it.u}${c!=="pt"&&stock(id)<it.min?` · <b class="neg">solicitar ~${nf(Math.max(0,it.min*1.5-stock(id)),dec(it.u))}</b>`:""}</small></div><input type="number" step="any" inputmode="decimal" data-cnt="${id}" placeholder="${it.u}"></div>`}).join("")}</div>
+  <div style="margin-top:8px">${ids.map(id=>{const it=itemOf(id);return `<div class="qrow"><div class="main">${esc(it.n)}${c==="pt"&&it.pres==="auto"?" (paq.)":""}<small>Sistema: ${PRES(id)?fmtQ(id,stock(id)):nf(stock(id),2)+" "+it.u}${c!=="pt"&&stock(id)<it.min?` · <b class="neg">solicitar ~${nf(Math.max(0,it.min*1.5-stock(id)),dec(it.u))}</b>`:""}</small></div>${PRES(id)?`<input type="hidden" data-cnt="${id}" data-ppt="${id}" data-ppid="${id}"></div>${presIn(id,id)}`:`<input type="number" step="any" inputmode="decimal" data-cnt="${id}" placeholder="${it.u}"></div>`}${c!=="pt"?`<input class="cprov" list="provl" data-cprov="${id}" value="${esc(it.prov||"")}" placeholder="Proveedor">`:""}`}).join("")}</div>${provList()}
   <button class="btn full big" style="margin-top:12px" data-act="cntsave">Guardar conteo</button>`)}
 function ajuste(id,diff,tipo,nota,lote,vence){const it=itemOf(id);if(diff>0){const l=lote||((tipo==="ini"?"INI-":"AJ-")+today().slice(2).replace(/-/g,""));addMov(id,diff,tipo,"",nota,l,vence||(catOf(id)==="pt"?addD(today(),it.vida||90):null))}else if(diff<0)consumeFIFO(id,-diff,tipo,"",nota)}
 
@@ -1135,6 +1149,7 @@ function cfgWarn(){const el=$("#cfgwarn");if(!el)return;const w=[];Object.entrie
 let BIP=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();BIP=e;if(UI&&UI.tab==="home")render()});
 function installCard(){const st=window.matchMedia&&matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(st||LS.get("meister_planta_noinst"))return "";const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
   return `<div class="alert blu" style="align-items:center"><span>📲</span><div style="flex:1"><b>Instala la app en tu teléfono.</b> ${BIP?"Toca Instalar y queda como un ícono más.":ios?"En Safari toca Compartir ⬆️ y luego <b>Agregar a inicio</b>.":"En Chrome toca ⋮ y luego <b>Agregar a la pantalla principal</b>."}</div>${BIP?`<button class="btn sm" data-act="inst">Instalar</button>`:""}<button class="btn sm ghost" data-act="noinst" aria-label="Cerrar">✕</button></div>`}
+const provList = () => `<datalist id="provl">${[...new Set(provs().map(p=>p.n).concat(Object.values(DB.items).map(o=>o.prov).filter(Boolean)))].map(n=>`<option value="${esc(n)}">`).join("")}</datalist>`;
 const fire = o => {const b=document.createElement("button");Object.assign(b.dataset,o);b.style.display="none";document.body.appendChild(b);b.click();b.remove()};
 function prodDirSheet(){openModal(`<div class="grab"></div><h3>▶️ Producción sin plan</h3><div class="muted">Para registrar lo que se está produciendo hoy aunque el plan no esté aprobado. Queda marcado como <b>producción directa</b>.</div>
   <label class="f">Producto (fórmula)</label><input id="pd_q" list="pd_l" placeholder="🔎 Escribe el producto…" autocomplete="off"><datalist id="pd_l">${DATA.F.map(f=>`<option value="${esc(f.n)}">`).join("")}</datalist>
@@ -1240,11 +1255,13 @@ document.addEventListener("click",e=>{
   case"conteo":conteoSheet(d.cat);break;
   case"cntsave":{let n=0;$$("[data-cnt]").forEach(i=>{if(i.value==="")return;const v=num(i.value);if(v==null)return;const id=i.dataset.cnt;const diff=v-stock(id);
       if(Math.abs(diff)>1e-9){ajuste(id,diff,live(DB.mov).some(m=>m.item===id)?"cnt":"ini","Conteo físico");n++}});
-    closeModal();track("conteo_fisico",{items:n});if(n)commit();toast(n?n+" ítems ajustados":"Sin cambios");break}
+    $$("[data-cprov]").forEach(i=>{const id=i.dataset.cprov;const v=i.value.trim();const o=DB.items[id]||{id};if((o.prov||"")!==v){o.prov=v;put("items",o);n+=0;DIRTY=true}});
+    closeModal();track("conteo_fisico",{items:n});commit();toast(n?n+" ítems ajustados":"Sin cambios");break}
   case"isave":{const v=num($("#iq").value);if(v==null)return toast("Escribe una cantidad");const id=d.id;const nota=$("#inota").value;
     if(UI.iop==="cnt")ajuste(id,v-stock(id),live(DB.mov).some(m=>m.item===id)?"cnt":"ini",nota);
-    else if(UI.iop==="in")ajuste(id,v,"in",nota,$("#il").value.trim(),$("#iv").value||null);else consumeFIFO(id,v,"out","",nota);
+    else if(UI.iop==="in"){ajuste(id,v,"in",nota,$("#il").value.trim(),$("#iv").value||null);const pv=$("#ip")&&$("#ip").value.trim();if(pv){const o=DB.items[id]||{id};o.prov=pv;put("items",o)}}else consumeFIFO(id,v,"out","",nota);
     closeModal();track("movimiento",{tipo:UI.iop});commit();toast("Guardado");break}
+  case"ipres":{const o=DB.items[d.id]||{id:d.id};if(isTripa(d.id)){o.cpb=num($("#pcpb").value)||0;o.mpb=num($("#pmpb").value)||0}else{o.upq=num($("#pupq").value)||0;o.ppb=num($("#pppb").value)||0}put("items",o);commit();itemSheet(d.id);toast("Presentación guardada");break}
   case"imin":{const o=DB.items[d.id]||{id:d.id};o.min=num($("#imin").value)||0;put("items",o);closeModal();commit();toast("Colchón actualizado");break}
   case"icost":{const o=DB.items[d.id]||{id:d.id};o.cost=num($("#icost").value)||0;put("items",o);closeModal();commit();toast("Costo actualizado");break}
   case"ocsug":{const sg=sugeridos(d.cat);put("oc",{id:uid(),num:ocNum(),cat:d.cat,lines:sg.map(r=>({mp:r.id,q:r.q,p:r.m.cost})),est:"borr",ts:Date.now(),src:"colchón"});track("compra_creada",{cat:d.cat});commit();toast("Orden creada en borrador");break}
@@ -1337,7 +1354,7 @@ document.addEventListener("click",e=>{
   case"reset":closeModal();if(!isTest())return;if(!confirm("¿Borrar todos los datos del modo prueba? La operación real no se toca."))return;DB=blankDB(Date.now());VER++;commit();toast("Piloto reiniciado");break;
   }
 });
-document.addEventListener("input",e=>{const t=e.target;const k=t.dataset.rmasa||t.dataset.rhor;if(k)fsum(k);const k2=t.dataset.erec||(t.dataset.rs&&t.dataset.rs.split("|")[0]);if(k2){const b=$("[data-act='empok']");if(b)esum(b.dataset.id,k2)}});
+document.addEventListener("input",e=>{const t=e.target;if(t.dataset.pp){const key=t.dataset.pp.split("|")[0];let tot=0,any=false;$$(`[data-pp^="${CSS.escape(key)}|"]`).forEach(i=>{if(i.value!==""){any=true;tot+=(+i.value||0)*+i.dataset.pp.split("|")[1]}});const h=$(`[data-ppt="${CSS.escape(key)}"]`);if(h)h.value=any?String(Math.round(tot*1e6)/1e6):"";const l=$(`[data-ppl="${CSS.escape(key)}"]`);const id=h&&h.dataset.ppid;if(l)l.textContent=any&&id?"Total: "+nf(tot,isTripa(id)?3:0)+" "+itemOf(id).u+(isTripa(id)&&tot!==1?"s":"")+(isTripa(id)?" ("+nf(tot*(MP(id).mpb??8686),0)+" m)":""):"";return}const k=t.dataset.rmasa||t.dataset.rhor;if(k)fsum(k);const k2=t.dataset.erec||(t.dataset.rs&&t.dataset.rs.split("|")[0]);if(k2){const b=$("[data-act='empok']");if(b)esum(b.dataset.id,k2)}});
 document.addEventListener("change",e=>{const t=e.target;
   if(t.dataset.kg){const p=curPlan();setF(p,t.dataset.kg,num(t.value)||0);put("plan",p);render.keep=true;commit()}
   if(t.dataset.sem){const[i,id]=t.dataset.sem.split("|");semSet(+i,id,num(t.value)||0)}
