@@ -412,7 +412,7 @@ const ROLES = {
   admin:{n:"Administrador",i:"⚙️",d:"Asigna roles y configura equipos"}
 };
 const PEOPLE = [{id:"giovanni",n:"Giovanni",tit:"Maestro Charcutero"},{id:"leyci",n:"Leyci Sánchez",tit:"Ing. de Alimentos"},{id:"lorenzo",n:"Lorenzo"},{id:"beatriz",n:"Beatriz Ramírez"},{id:"juan",n:"Juan"},{id:"antonio",n:"Antonio"},{id:"william",n:"William",tit:"Empaque y PT"},{id:"gerencia",n:"Gerencia"},{id:"oficina",n:"Oficina"},{id:"prueba",n:"Modo prueba",test:true}];
-const DEF_ROLES = {giovanni:["cap","receta","cal"],leyci:["cap","plan","cal"],william:["empq","almpt"],lorenzo:["almmp","desp"],beatriz:["cnoc","clim"],juan:["ccar"],antonio:["plan","cemp"],gerencia:["apro","admin"],oficina:["ofi"]};
+const DEF_ROLES = {giovanni:["cap","receta","cal"],leyci:["cap","plan","cal","receta","apro","almmp","almpt","empq","desp","ccar","cnoc","cemp","clim","ofi","admin"],william:["empq","almpt"],lorenzo:["almmp","desp"],beatriz:["cnoc","clim"],juan:["ccar"],antonio:["plan","cemp"],gerencia:["apro","admin"],oficina:["ofi"]};
 const AREA_ROLES = {ped:["plan","apro","desp","cap","ofi"],verif:["plan","cap","almpt"],plan:["plan","cap","apro"],exp:["plan","cap","receta","ccar","cnoc","cemp"],comp:["ccar","cnoc","cemp","clim","admin"],empq:["empq","almpt"],transito:["cap","cal","empq","almpt","plan","desp"],rec:["almmp"],prod:["cap","cal"],cal:["cal"],desp:["desp","ofi"]};
 const ROLE_HOME = {cal:["cal","prod","exp"],receta:["exp"],plan:["plan","exp","verif"],cap:["prod","plan","verif"],apro:["plan","bal"],almmp:["rec","inv"],almpt:["inv","verif"],desp:["desp","ped"],ccar:["comp","exp"],cnoc:["comp","exp"],cemp:["comp","exp"],clim:["comp"],empq:["empq","transito"],ofi:["ped","desp"],admin:["bal"]};
 const AREA_OWN = {ped:["ofi","plan"],verif:["almpt","cap"],plan:["plan","cap","apro"],exp:["plan"],inv:["almmp","almpt"],comp:["ccar","cnoc","cemp","clim"],rec:["almmp"],prod:["cap"],transito:["cap","empq"],empq:["empq","almpt"],cal:["cal"],desp:["desp"],bal:[]};
@@ -496,7 +496,7 @@ const dec = u => (u==="kg"||u==="L")?1:0;
 
 /* ---------- roles y permisos ---------- */
 const person = id => PEOPLE.find(p=>p.id===id);
-function rolesOf(pid){if(DB.cfg.roles&&!DB.cfg.rv2){DB.cfg.rv2=1;const l=DB.cfg.roles.leyci;if(l&&!l.includes("plan"))l.push("plan")}if(pid==="prueba")return Object.keys(ROLES);const r=DB.cfg.roles&&DB.cfg.roles[pid];return r||DEF_ROLES[pid]||[]}
+function rolesOf(pid){if(DB.cfg.roles&&!DB.cfg.rv3){DB.cfg.rv3=1;DB.cfg.roles.leyci=DEF_ROLES.leyci.slice()}if(pid==="prueba")return Object.keys(ROLES);const r=DB.cfg.roles&&DB.cfg.roles[pid];return r||DEF_ROLES[pid]||[]}
 const EU = () => SES ? (SES.u==="prueba"&&SES.as?SES.as:SES.u) : null;
 const has = r => !!SES && rolesOf(EU()).includes(r);
 const cargo = pid => pid==="prueba" ? "Prueba todas las áreas (1 persona)" : ((person(pid)&&person(pid).tit?person(pid).tit+" · ":"")+rolesOf(pid).filter(r=>r!=="admin").map(r=>ROLES[r].n).join(" · ") || (rolesOf(pid).includes("admin")?"Administrador":"Sin rol asignado"));
