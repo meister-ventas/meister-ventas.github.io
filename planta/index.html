@@ -496,6 +496,8 @@ const dec = u => (u==="kg"||u==="L")?1:0;
 
 /* ---------- roles y permisos ---------- */
 const person = id => PEOPLE.find(p=>p.id===id);
+const LIMPIA_BORR=Date.UTC(2026,10,20,16,50);
+function limpiaBorradores(){if(isTest()||DB.cfg.clean1)return;let n=0;Object.values(DB.plan).forEach(p=>{if(!p._del&&p.est==="borr"&&(p.ts||0)<LIMPIA_BORR){p._del=1;put("plan",p);n++}});Object.values(DB.oc).forEach(o=>{if(!o._del&&o.est==="borr"&&(o.ts||0)<LIMPIA_BORR){o._del=1;put("oc",o);n++}});setCfg("clean1",1);if(n)commit()}
 function rolesOf(pid){if(DB.cfg.roles&&!DB.cfg.rv3){DB.cfg.rv3=1;DB.cfg.roles.leyci=DEF_ROLES.leyci.slice()}if(pid==="prueba")return Object.keys(ROLES);const r=DB.cfg.roles&&DB.cfg.roles[pid];return r||DEF_ROLES[pid]||[]}
 const EU = () => SES ? (SES.u==="prueba"&&SES.as?SES.as:SES.u) : null;
 const has = r => !!SES && rolesOf(EU()).includes(r);
@@ -506,7 +508,7 @@ const holders = r => PEOPLE.filter(p=>!p.test&&rolesOf(p.id).includes(r)).map(p=
 const ownersOf = area => { const rs=AREA_OWN[area]; if(!rs.length) return "Todos"; const names=[...new Set(rs.flatMap(holders))]; return (area==="ped"?["Vendedores"]:[]).concat(names).join(" · ")||"Sin asignar"; };
 const nameOf = id => id==="prueba"?"Prueba":((person(id)||{n:id||"—"}).n.split(" ")[0]);
 const can = {
-  inv:c => c==="pt"?has("almpt"):has("almmp"),
+  inv:c => c==="pt"?has("almpt")||has("empq")||has("desp"):has("almmp"),
   min:c => (c==="pt"?has("almpt"):has("almmp"))||has("plan"),
   cost:c => has("c"+c)||has("admin"),
   comp:c => has("c"+c),
@@ -765,7 +767,8 @@ function capBars(lines,fecha){const I=capInfo(lines);const W=EQ().find(e=>e.id==
 function planView(){
   const pv=UI.sub.planv||"sem";const tabs=`<div class="seg"><button class="${pv==="sem"?"on":""}" data-sub="planv:sem">📅 Control semanal</button><button class="${pv==="dia"?"on":""}" data-sub="planv:dia">🗓️ Plan del día</button></div>`;
   if(pv==="sem")return tabs+semView();
-  return tabs+planDia();
+  const nb=planes().filter(p=>p.est==="borr").length;
+  return tabs+(nb>1&&has("plan")?`<div class="alert amb" style="align-items:center"><span>🗂️</span><div style="flex:1">${nb} planes en borrador</div><button class="btn sm sec" data-act="pdelall">Descartar todos</button></div>`:"")+planDia();
 }
 function planDia(){
   const ps=planes();const cur=curPlan();
@@ -800,7 +803,8 @@ function planDia(){
 function histPlans(ps,cur){const o=ps.filter(p=>p.id!==cur).slice(0,10);if(!o.length)return "";
   return `<div class="sec-t">Planes</div>${o.map(p=>`<button class="irow" data-plan="${p.id}"><div class="main"><div class="nm">${dlab(p.fecha)} · ${nf(planKg(p),0)} kg</div><div class="meta">${esc(p.num||"")}${p.lote?" · lote "+esc(p.lote):""}${p.real?" · real "+nf(realKg(p),0)+" kg":""}</div></div><span class="chip ${PEST[p.est][1]}">${PEST[p.est][0]}</span></button>`).join("")}`}
 function newPlan(){const v=verif();const lines={};v.forEach(r=>{if(r.prod>0){const f=F(r.f);lines[r.f]=ceilTo(r.prod,f.lote)}});
-  const p={id:uid(),num:"PP-"+String(Object.keys(DB.plan).length+1).padStart(3,"0"),fecha:nextWork(today(),1),lines:{},est:"borr",ts:Date.now(),hist:[]};Object.entries(lines).forEach(([f,k])=>setF(p,f,k));put("plan",p);UI.plan=p.id;UI.sub.planv="dia";track("plan_creado",{kg:planKg(p),tipo:"dia"});commit();
+  {const ex=planDe(nextWork(today(),1));if(ex){UI.plan=ex.id;UI.sub.planv="dia";render();return toast("Ya existe el plan de ese día: lo abrí")}}
+  const p={id:uid(),num:ppNum(),fecha:nextWork(today(),1),lines:{},est:"borr",ts:Date.now(),hist:[]};Object.entries(lines).forEach(([f,k])=>setF(p,f,k));put("plan",p);UI.plan=p.id;UI.sub.planv="dia";track("plan_creado",{kg:planKg(p),tipo:"dia"});commit();
   toast(Object.keys(lines).length?"Plan sugerido con "+Object.keys(lines).length+" productos":"Plan vacío: no falta producto. Agrega a mano si quieres.")}
 function weekPlan(lun){
   const v=verif().filter(r=>r.prodSem>0).sort((a,b)=>(b.est==="falta")-(a.est==="falta")||a.dias-b.dias||b.prodSem-a.prodSem);
@@ -811,7 +815,7 @@ function weekPlan(lun){
       for(let d=0;d<days.length;d++){if(busy.has(days[d]))continue;if(rt.every(e=>(load[d][e]||0)+q<=C[e]+1e-9)){rt.forEach(e=>load[d][e]=(load[d][e]||0)+q);lines[d][r.f]=(lines[d][r.f]||0)+q;ok=true;break}}
       if(!ok){fuera+=need;break}need-=q}});
   const sem=fcorta(lunesDe(days[0]));let n=0,first=null;
-  days.forEach((d,i)=>{if(!Object.keys(lines[i]).length)return;const p0={id:uid(),num:"PP-"+String(Object.keys(DB.plan).length+1).padStart(3,"0"),fecha:d,lines:{},est:"borr",ts:Date.now()+i,sem,hist:[]};Object.entries(lines[i]).forEach(([f,k])=>setF(p0,f,k));const p=put("plan",p0);if(!first)first=p.id;n++});
+  days.forEach((d,i)=>{if(!Object.keys(lines[i]).length)return;const ex=planDe(d);const p0=ex&&ex.est==="borr"?ex:{id:uid(),num:ppNum(),fecha:d,lines:{},est:"borr",ts:Date.now()+i,sem,hist:[]};p0.lines={};p0.req={};Object.entries(lines[i]).forEach(([f,k])=>setF(p0,f,k));const p=put("plan",p0);if(!first)first=p.id;n++});
   UI.plan=first;track("plan_creado",{tipo:"semana",dias:n});commit();
   toast(n?`${n} ${n>1?"planes":"plan"} en borrador · primero lo que se agota (${dlab(days[0])} a ${dlab(days[days.length-1])})`+(fuera?` · ${nf(fuera,0)} kg no caben`:""):"No hace falta producir esta semana")}
 
@@ -900,13 +904,13 @@ function ocCard(o,ed){const tot=o.lines.reduce((a,l)=>a+(+l.q||0)*(+l.p||0),0);c
   ${o.rec?`<div class="muted">Recibió ${esc(nameOf(o.rec.by))} · ${dlab(iso(o.rec.ts))} ${hhmm(o.rec.ts)}${o.rec.doc?" · doc. "+esc(o.rec.doc):""}</div>`:""}
   ${ed?`<div class="oa" style="margin-top:8px">${o.est==="borr"?`<button class="btn sec sm" data-act="ocedit" data-id="${o.id}">✏️ Editar</button><button class="btn sm" data-act="ocsend" data-id="${o.id}">📤 Enviar al proveedor</button>`:o.est==="env"?`<button class="btn sec sm" data-act="ocwa" data-id="${o.id}">💬 Reenviar</button><span class="muted" style="align-self:center">La recibe Almacén</span>`:""}</div>`:""}</div>`}
 function ocText(o){const p=provGet(o.prov);return `MEISTER · Orden de compra ${o.num}\n${CATS[o.cat].n}\nFecha: ${fcorta(iso(o.ts))}${provName(o.prov)?"\nProveedor: "+provName(o.prov):""}\n\n`+o.lines.map(l=>`• ${nf(l.q,1)} ${MP(l.mp).u} — ${MP(l.mp).n}`).join("\n")+(o.nota?"\n\nNota: "+o.nota:"")+`\n\nFavor confirmar disponibilidad y fecha de entrega${p&&p.lead?" (esperamos en "+p.lead+" días)":""}.`}
-function ocSheet(){const o=UI.oce;const ps=provs().filter(p=>p.cats.includes(o.cat));openModal(`<div class="grab"></div><h3>${esc(o.num)} · ${CATS[o.cat].n}</h3>
+function ocSheet(){const o=UI.oce;const ps=provs().filter(p=>p.cats.includes(o.cat));openModal(`<div class="grab"></div><h3>${o.dir?"🚛 Llegó mercancía · ":esc(o.num)+" · "}${CATS[o.cat].n}</h3>${o.dir?`<div class="muted">Sin orden de compra. Elige el proveedor y lo que llegó; luego registras lote, vencimiento y temperatura.</div>`:""}
   <label class="f">Proveedor</label><select id="oc_prov"><option value="">— Elegir —</option>${ps.map(p=>`<option value="${p.id}" ${o.prov===p.id?"selected":""}>${esc(p.n)} · ${p.lead||0} días</option>`).join("")}<option value="__new">＋ Nuevo proveedor…</option></select>
   <div class="qrow muted" style="padding:6px 0 0"><div class="main"></div><span style="width:76px;text-align:center">Cant.</span><span style="width:66px;text-align:center">$ c/u</span><span style="width:20px"></span></div>
   <div>${o.lines.map((l,i)=>{const h=precios(l.mp)[0];return `<div class="qrow"><div class="main">${esc(MP(l.mp).n)}<small>${MP(l.mp).u}${h?" · último "+usd(h.p)+" "+esc(h.prov||"")+" "+fcorta(h.f):""}</small></div><input type="number" step="any" data-ocq="${i}" value="${l.q}" style="width:76px"><input type="number" step="any" data-ocp="${i}" value="${l.p}" style="width:66px"><button class="rmq" data-act="ocrm" data-i="${i}">✕</button></div>`}).join("")}</div>
   <select id="oc_add" style="margin-top:8px"><option value="">＋ Agregar material…</option>${DATA.MP.filter(m=>m.cat===o.cat&&!o.lines.some(l=>l.mp===m.id)).map(m=>`<option value="${m.id}">${esc(m.n)}</option>`).join("")}</select>
   <label class="f">Nota</label><input id="oc_nota" value="${esc(o.nota||"")}">
-  <button class="btn full big" style="margin-top:12px" data-act="ocsave">Guardar</button>${DB.oc[o.id]?`<button class="btn ghost full" data-act="ocdel">Eliminar borrador</button>`:""}`)}
+  <button class="btn full big" style="margin-top:12px" data-act="ocsave">${o.dir?"Continuar a recepción →":"Guardar"}</button>${DB.oc[o.id]?`<button class="btn ghost full" data-act="ocdel">Eliminar borrador</button>`:""}`)}
 function provSheet(id,cat){const p=id?provGet(id):{id:uid(),n:"",cats:cat?[cat]:MPC.filter(c=>has("c"+c)).slice(0,1),lead:2,tel:"",rif:""};UI.pv=JSON.parse(JSON.stringify(p));
   openModal(`<div class="grab"></div><h3>${id?"Proveedor":"Nuevo proveedor"}</h3>
   <label class="f">Nombre</label><input id="pv_n" value="${esc(p.n)}"><label class="f">RIF</label><input id="pv_rif" value="${esc(p.rif||"")}">
@@ -927,7 +931,7 @@ function recView(){
   <div class="alert blu"><span>🔎</span><div>Pesa o cuenta lo que llega. En cárnica mide <b>pH (${fx(QCF().mpPh[0])}–${fx(QCF().mpPh[1])})</b> y <b>temperatura (refrigerado ${fx(QCF().mpTmin??0)} a ${fx(QCF().mpT)} °C, congelado ≤ ${fx(QCF().mpTc)} °C · PCC 1)</b>. Lo que no cumple se rechaza o queda marcado.</div></div>
   ${env.map(o=>`<div class="ocard"><div class="oh"><div><b>${CATS[o.cat].ico} ${esc(o.num)}</b> <span class="muted">${esc(provName(o.prov)||"sin proveedor")}</span><div class="muted">${CATS[o.cat].n} · llega ~${dlab(llega(o))}</div></div><span class="chip ${atrasada(o)?"c-red":"c-blu"}">${atrasada(o)?"Atrasada":"En camino"}</span></div>
     <div class="ol">${o.lines.map(l=>`${nf(l.q,1)} ${MP(l.mp).u} · ${esc(MP(l.mp).n)}`).join("<br>")}</div>
-    ${ed?`<button class="btn full" data-act="ocrec" data-id="${o.id}">📥 Recibir mercancía</button>`:""}</div>`).join("")||`<div class="empty">No hay órdenes en camino.</div>`}
+    ${ed?`<button class="btn full" data-act="ocrec" data-id="${o.id}">📥 Recibir mercancía</button>`:""}</div>`).join("")||`<div class="empty">No hay órdenes en camino.</div>`}${has("almmp")?`<div class="sec-t">¿Llegó algo sin orden?</div><div class="chips">${MPC.map(c=>`<button class="chip" data-act="recdir" data-cat="${c}">🚛 ${CATS[c].s}</button>`).join("")}</div>`:""}
   ${rec.length?`<div class="sec-t">Recibidas</div>${rec.map(o=>ocCard(o,false)).join("")}`:""}`;
 }
 function ocRecSheet(id){const o=DB.oc[id];const car=o.cat==="car";openModal(`<div class="grab"></div><h3>Recibir ${esc(o.num)}</h3><div class="muted">${esc(provName(o.prov)||"")} · Escribe lo que llegó y lo que rechazas. El lote y el vencimiento sirven para la trazabilidad.</div>
@@ -943,7 +947,7 @@ function ocRecSheet(id){const o=DB.oc[id];const car=o.cat==="car";openModal(`<di
 function prodView(){
   const ed=has("cap");const act=planes().filter(p=>p.est==="apro"||p.est==="proc");const cer=planes().filter(p=>p.est==="cerr").slice(0,6);
   const pend=planes().filter(p=>["borr","rev","cap"].includes(p.est));const pe=planes().filter(p=>p.est==="emp");
-  return `${(has("cap")||has("cal"))?`<button class="btn sec full" data-act="rutadd" style="margin-bottom:10px">🌡️ Rutina variable · pH y temperatura</button>`:""}${pe.length?`<div class="alert blu"><span>🏷️</span><div>${pe.length} ${pe.length>1?"lotes esperan":"lote espera"} en Empaque: ${pe.map(p=>"Lote "+esc(p.lote)).join(", ")}.</div></div>`:""}${act.length?act.map(p=>{const t=expTable(p).filter(r=>r.falta>0);return `<div class="ocard"><div class="oh"><div><div class="muted">${esc(p.num)}${p.lote?" · Lote "+esc(p.lote):""}</div><b>Producción ${deld(p.fecha)} · ${nf(planKg(p),0)} kg</b></div><span class="chip ${PEST[p.est][1]}">${PEST[p.est][0]}</span></div>
+  return `${(has("cap")||has("cal"))?`<div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn sec" style="flex:1" data-act="rutadd">🌡️ Rutina variable</button><button class="btn sec" style="flex:1" data-act="proddir">⚡ Producción sin plan</button></div>`:""}${pe.length?`<div class="alert blu"><span>🏷️</span><div>${pe.length} ${pe.length>1?"lotes esperan":"lote espera"} en Empaque: ${pe.map(p=>"Lote "+esc(p.lote)).join(", ")}.</div></div>`:""}${act.length?act.map(p=>{const t=expTable(p).filter(r=>r.falta>0);return `<div class="ocard"><div class="oh"><div><div class="muted">${esc(p.num)}${p.lote?" · Lote "+esc(p.lote):""}</div><b>Producción ${deld(p.fecha)} · ${nf(planKg(p),0)} kg</b></div><span class="chip ${PEST[p.est][1]}">${PEST[p.est][0]}</span></div>
     <div class="ol">${Object.entries(p.lines).filter(([f,k])=>k>0).map(([f,k])=>`${nf(k,0)} kg · ${esc(F(f).n)}`).join("<br>")}</div>
     ${p.est==="apro"&&t.length?`<div class="alert amb"><span>⚠️</span><div>Faltan ${t.length} materiales: ${t.slice(0,4).map(r=>esc(r.m.n)).join(", ")}${t.length>4?"…":""}. Puedes iniciar si ya llegaron.</div></div>`:""}
     ${p.est==="apro"?piezasAgenda(p):""}${p.est==="proc"?(()=>{const E=pccEstado(p);return `<div class="pccbar"><div><b>📋 Hoja de proceso</b> · ${E.d}/${E.n} etapas · ${esc(etapaProc(p))}${E.bad?` · <span class="neg">${E.bad} fuera de límite</span>`:""}</div><div class="sbar"><span style="width:${E.n?E.d/E.n*100:0}%;background:${E.bad?"var(--red)":"var(--grn)"}"></span></div></div><button class="btn sec full" data-act="pcc" data-id="${p.id}" style="margin-bottom:8px">📋 Abrir hoja de proceso (PCC)</button>`})():""}
@@ -1131,13 +1135,18 @@ function cfgWarn(){const el=$("#cfgwarn");if(!el)return;const w=[];Object.entrie
 let BIP=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();BIP=e;if(UI&&UI.tab==="home")render()});
 function installCard(){const st=window.matchMedia&&matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(st||LS.get("meister_planta_noinst"))return "";const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
   return `<div class="alert blu" style="align-items:center"><span>📲</span><div style="flex:1"><b>Instala la app en tu teléfono.</b> ${BIP?"Toca Instalar y queda como un ícono más.":ios?"En Safari toca Compartir ⬆️ y luego <b>Agregar a inicio</b>.":"En Chrome toca ⋮ y luego <b>Agregar a la pantalla principal</b>."}</div>${BIP?`<button class="btn sm" data-act="inst">Instalar</button>`:""}<button class="btn sm ghost" data-act="noinst" aria-label="Cerrar">✕</button></div>`}
+const fire = o => {const b=document.createElement("button");Object.assign(b.dataset,o);b.style.display="none";document.body.appendChild(b);b.click();b.remove()};
+function prodDirSheet(){openModal(`<div class="grab"></div><h3>▶️ Producción sin plan</h3><div class="muted">Para registrar lo que se está produciendo hoy aunque el plan no esté aprobado. Queda marcado como <b>producción directa</b>.</div>
+  <label class="f">Producto (fórmula)</label><input id="pd_q" list="pd_l" placeholder="🔎 Escribe el producto…" autocomplete="off"><datalist id="pd_l">${DATA.F.map(f=>`<option value="${esc(f.n)}">`).join("")}</datalist>
+  <label class="f">Kilos a producir</label><input id="pd_kg" type="number" inputmode="decimal" step="any" placeholder="Ej. 200">
+  <button class="btn full big" style="margin-top:14px" data-act="proddirok">Continuar · iniciar lote</button>`)}
 /* ---------- botón "Cargar datos" por área ---------- */
 const NOLOAD={transito:"Esta pantalla se llena sola con los lotes en producción, enfriamiento y empaque.",bal:"El balance se calcula solo con lo que cargan las demás áreas. Aquí puedes consultar y exportar."};
 function loadOpts(k){const o=[];const ps=planes();const A=(i,t,s,at)=>o.push({i,t,s,at});const who=r=>holders(r).join(" · ")||"—";
   const L=(r,i,t,s)=>o.push({i,t,s,lock:"Lo carga "+who(r)});
   switch(k){
   case"ped":if(has("ofi")||has("plan")||has("desp"))A("☎️","Pedido de cadena o por teléfono","Cliente, productos y fecha de entrega",'data-act="pedman"');else L("ofi","☎️","Pedido de cadena o por teléfono","");break;
-  case"verif":if(has("almpt"))A("📋","Conteo físico de producto terminado","Lo que hay en la cava de PT",'data-act="conteo" data-cat="pt"');else L("almpt","📋","Conteo de producto terminado","");break;
+  case"verif":if(has("almpt")||has("empq"))A("📋","Conteo físico de producto terminado","Lo que hay en la cava de PT",'data-act="conteo" data-cat="pt"');else L("almpt","📋","Conteo de producto terminado","");break;
   case"plan":if(has("plan")){A("📅","Plan de la semana","Sugerido por lo que se agota primero",'data-act="weekplan"');A("🗓️","Plan de un día","Con los faltantes de hoy",'data-act="newplan"')}else L("plan","📅","Plan de producción","");
     ps.filter(p=>p.est==="rev"&&has("cap")).forEach(p=>A("🏭","Confirmar capacidad · "+dlab(p.fecha),nf(planKg(p),0)+" kg",`data-plan="${p.id}"`));
     ps.filter(p=>p.est==="cap"&&has("apro")).forEach(p=>A("✅","Aprobar plan · "+dlab(p.fecha),nf(planKg(p),0)+" kg",`data-plan="${p.id}"`));break;
@@ -1146,16 +1155,17 @@ function loadOpts(k){const o=[];const ps=planes();const A=(i,t,s,at)=>o.push({i,
     if(!o.length)L("almmp","📋","Conteos y movimientos de inventario","");break;
   case"comp":CTABS.forEach(T=>T.cats.forEach(c=>{if(has("c"+c))A("🛒","Nueva orden de compra · "+CATS[c].s,"Elige proveedor y materiales",`data-act="ocnew" data-cat="${c}"`)}));
     if(MPC.some(c=>has("c"+c))||has("admin"))A("🤝","Nuevo proveedor","RIF, teléfono, días de entrega",'data-act="provnew"');if(!o.length)L("ccar","🛒","Órdenes de compra","");break;
-  case"rec":if(has("almmp")){ocs().filter(x=>x.est==="env").forEach(x=>A("📥","Recibir "+x.num,(provName(x.prov)||"")+" · temperatura, lote y vencimiento",`data-act="ocrec" data-id="${x.id}"`));if(!o.length)o.push({i:"✓",t:"No hay órdenes por recibir",s:"Compras debe enviar la orden primero"})}else L("almmp","📥","Recepción de materia prima","");break;
+  case"rec":if(has("almmp")){ocs().filter(x=>x.est==="env").forEach(x=>A("📥","Recibir "+x.num,(provName(x.prov)||"")+" · temperatura, lote y vencimiento",`data-act="ocrec" data-id="${x.id}"`));MPC.forEach(c=>A("🚛","Llegó mercancía sin orden · "+CATS[c].s,"Registra lo que llegó: proveedor, cantidad, lote, temperatura",`data-act="recdir" data-cat="${c}"`))}else L("almmp","📥","Recepción de materia prima","");break;
   case"prod":if(has("cap")||has("cal")){ps.filter(p=>p.est==="apro").forEach(p=>A("▶️","Iniciar lote · "+dlab(p.fecha),"EPP, número de lote y maestro",`data-act="pstart" data-id="${p.id}"`));
       ps.filter(p=>p.est==="proc").forEach(p=>{A("📋","Hoja de proceso · lote "+p.lote,"Registrar etapa y temperatura (PCC)",`data-act="pcc" data-id="${p.id}"`);A("🏁","Cerrar lote "+p.lote,"Masa, entregado y carne usada",`data-act="pclose" data-id="${p.id}"`)});
-      A("🌡️","Rutina variable de hoy","pH y temperatura de MP y producto",'data-act="rutadd"');if(!ps.some(p=>p.est==="apro"||p.est==="proc"))o.unshift({i:"ℹ️",t:"No hay lotes aprobados",s:"El plan debe estar aprobado para iniciar"})}else L("cap","▶️","Producción","");break;
-  case"empq":if(has("empq")){ps.filter(p=>p.est==="emp").forEach(p=>A("🏷️","Empacar lote "+p.lote,"Peso recibido, bolsas, etiquetas, sellado",`data-act="emp" data-id="${p.id}"`));if(!o.length)o.push({i:"✓",t:"Nada por empacar",s:"Aparece cuando producción cierra un lote"})}else L("empq","🏷️","Empaque","");
+      A("⚡","Producción sin plan","Registra un lote aunque el plan no esté aprobado",'data-act="proddir"');A("🌡️","Rutina variable de hoy","pH y temperatura de MP y producto",'data-act="rutadd"')}else L("cap","▶️","Producción","");break;
+  case"empq":if(has("empq")){ps.filter(p=>p.est==="emp").forEach(p=>A("🏷️","Empacar lote "+p.lote,"Peso recibido, bolsas, etiquetas, sellado",`data-act="emp" data-id="${p.id}"`))}else L("empq","🏷️","Empaque","");
+    if(has("almpt")||has("empq"))A("➕","Entrada de producto terminado","Producto empacado que entra a la cava",'data-act="ipick" data-cat="pt"');
     if(has("almpt"))A("📋","Conteo físico de producto terminado","Cava de PT",'data-act="conteo" data-cat="pt"');break;
   case"cal":if(has("cal")){ps.filter(p=>p.est==="cerr"&&p.real&&!p.lib&&!p.ret).forEach(p=>A("🔬","Liberar o retener lote "+p.lote,dlab(p.fecha),`data-tab="cal" data-gosub="calv:lot"`));
       mpFuera().forEach(x=>A("⚠️","Decidir recepción · "+MP(x.l.mp).n,"Fuera de rango en "+x.o.num,`data-tab="cal" data-gosub="calv:lot"`));A("🌡️","Rutina variable de hoy","pH y temperatura",'data-act="rutadd"')}
     if(has("cal")||has("almmp")||has("almpt"))A("❄️","Temperatura de cavas","Mañana y tarde · PCC 2 y 7",'data-tab="cal" data-gosub="calv:cav"');if(!o.length)L("cal","🔬","Calidad","");break;
-  case"desp":if(has("desp")){const P=pendientes().filter(puedeDesp);P.slice(0,12).forEach(x=>A("🚚","Despachar "+x.id,(x.cli||x.cod||"")+" · "+nf(kgPed(x),0)+" kg",`data-act="desp" data-k="${esc(x.key)}"`));if(!P.length)o.push({i:"ℹ️",t:"Nada listo para despachar",s:"Falta producto terminado liberado"})}else L("desp","🚚","Despacho","");break;
+  case"desp":if(has("desp")){const P=pendientes().filter(puedeDesp);P.slice(0,12).forEach(x=>A("🚚","Despachar "+x.id,(x.cli||x.cod||"")+" · "+nf(kgPed(x),0)+" kg",`data-act="desp" data-k="${esc(x.key)}"`));A("☎️","Pedido nuevo para despachar","Cliente, productos y fecha",'data-act="pedman"');A("📤","Salida de producto terminado","Lo que salió de la cava sin pedido en la app",'data-act="ipick" data-cat="pt"')}else L("desp","🚚","Despacho","");break;
   }return o}
 function cargarSheet(k){const one=k&&k!=="home";const areas=one?[k]:areasOf(EU()).filter(a=>!NOLOAD[a]);
   const blocks=areas.map(a=>{const o=loadOpts(a);if(!one&&!o.some(x=>x.at))return "";return `${one?"":`<div class="sec-t">${AREAS[a].ico} ${esc(AREAS[a].n)}</div>`}${o.map(x=>x.at?`<button class="task2 ld" ${x.at}><span class="ti blu">${x.i}</span><span class="tx">${esc(x.t)}<small>${esc(x.s)}</small></span>›</button>`:`<div class="task2 ld off"><span class="ti">${x.i}</span><span class="tx">${esc(x.t)}<small>${esc(x.lock||x.s)}</small></span></div>`).join("")}`}).join("");
@@ -1190,6 +1200,10 @@ document.addEventListener("click",e=>{
   case"menu":menuSheet();break;
   case"cargar":track("cargar_datos",{area:UI.tab});cargarSheet(UI.tab);break;
   case"ipick":pickSheet(d.cat);break;
+  case"proddir":prodDirSheet();break;
+  case"proddirok":{const n=$("#pd_q").value.trim().toLowerCase();const f=DATA.F.find(x=>x.n.toLowerCase()===n)||DATA.F.find(x=>x.n.toLowerCase().includes(n));const kg=+$("#pd_kg").value;if(!n||!f)return toast("Elige el producto de la lista");if(!(kg>0))return toast("Escribe los kilos");
+    const p={id:uid(),num:ppNum(),fecha:today(),lines:{},est:"apro",dir:1,ts:Date.now(),hist:[{est:"apro",by:SES.u,ts:Date.now(),nota:"Producción directa (sin plan)"}]};p.lines[f.id]=kg;put("plan",p);track("produccion_directa",{kg});commit();fire({act:"pstart",id:p.id});break}
+  case"recdir":UI.oce={id:uid(),num:ocNum(),cat:d.cat,lines:[],est:"borr",ts:Date.now(),dir:1};ocSheet();break;
   case"inst":if(BIP){BIP.prompt();BIP.userChoice.then(c=>{track("app_instalada",{ok:c.outcome});BIP=null;render()})}break;
   case"noinst":LS.set("meister_planta_noinst",1);render();break;
   case"rpick":rpickSheet();break;
@@ -1203,7 +1217,8 @@ document.addEventListener("click",e=>{
   case"pmsave":{const cli=$("#pm_cli").value.trim();if(!cli)return toast("Escribe el cliente o destino");
     const cr=CLI_BY[cli];put("ped",{id:"PM-"+String(Object.keys(DB.ped).length+1).padStart(4,"0"),cli:cr?cr[1]:cli,cod:cr?cr[0]:"",vendCli:cr?cr[2]:"",entrega:$("#pm_ent").value||today(),date:today(),items:UI.pm.items,origen:$("#pm_ori").value});closeModal();track("pedido_manual");commit();toast("Pedido guardado");break}
   case"newplan":newPlan();break;
-  case"weekplan":if(planes().some(p=>p.est==="borr"))return toast("Primero envía o descarta los borradores");weekPlan();break;
+  case"weekplan":weekPlan();break;
+  case"pdelall":{const b=planes().filter(p=>p.est==="borr");if(!b.length)return;if(!confirm(`¿Descartar ${b.length} ${b.length>1?"planes":"plan"} en borrador?`))return;b.forEach(p=>{p._del=1;put("plan",p)});UI.plan=null;commit();toast("Borradores descartados");break}
   case"pk":{const p=P();const f=F(d.f);addF(p,d.f,(+d.d)*f.lote);put("plan",p);render.keep=true;commit();break}
   case"paddf":openModal(`<div class="grab"></div><h3>Agregar producto al plan</h3>${FAMS.map(fm=>`<div class="sec-t">${fm}</div>${DATA.F.filter(f=>f.fam===fm).map(f=>`<button class="irow" data-act="paddok" data-f="${f.id}"><div class="main"><div class="nm">${esc(f.n)}</div><div class="meta">Lote ${F(f.id).lote} kg</div></div>＋</button>`).join("")}`).join("")}`);break;
   case"paddok":{const p=P();addF(p,d.f,F(d.f).lote);put("plan",p);closeModal();commit();break}
@@ -1236,7 +1251,7 @@ document.addEventListener("click",e=>{
   case"ocnew":UI.oce={id:uid(),num:ocNum(),cat:d.cat,lines:[],est:"borr",ts:Date.now()};ocSheet();break;
   case"ocedit":UI.oce=JSON.parse(JSON.stringify(DB.oc[d.id]));ocSheet();break;
   case"ocrm":ocRead();UI.oce.lines.splice(+d.i,1);ocSheet();break;
-  case"ocsave":{ocRead();if(!UI.oce.lines.length)return toast("Agrega al menos un material");put("oc",UI.oce);closeModal();commit();toast("Orden guardada");break}
+  case"ocsave":{ocRead();if(!UI.oce.lines.length)return toast("Agrega al menos un material");if(UI.oce.dir){const o=UI.oce;o.est="env";o.env=Date.now();o.nota=o.nota||"Recepción sin orden de compra";put("oc",o);commit();track("recepcion_directa",{cat:o.cat});ocRecSheet(o.id);break}put("oc",UI.oce);closeModal();commit();toast("Orden guardada");break}
   case"ocdel":{const o=DB.oc[UI.oce.id];o._del=1;put("oc",o);closeModal();commit();break}
   case"ocsend":{const o=DB.oc[d.id];if(!o.prov&&!confirm("La orden no tiene proveedor. ¿Enviar igual?"))return;o.est="env";o.env=Date.now();put("oc",o);track("compra_enviada",{cat:o.cat});commit();shareText(ocText(o),provGet(o.prov));break}
   case"ocwa":shareText(ocText(DB.oc[d.id]),provGet(DB.oc[d.id].prov));break;
@@ -1326,7 +1341,7 @@ document.addEventListener("input",e=>{const t=e.target;const k=t.dataset.rmasa||
 document.addEventListener("change",e=>{const t=e.target;
   if(t.dataset.kg){const p=curPlan();setF(p,t.dataset.kg,num(t.value)||0);put("plan",p);render.keep=true;commit()}
   if(t.dataset.sem){const[i,id]=t.dataset.sem.split("|");semSet(+i,id,num(t.value)||0)}
-  if(t.dataset.semobs!=null){const lun=UI.semLun||lunesDe(today());const d=semDias(lun)[+t.dataset.semobs];let p=planDe(d);if(!p){if(!t.value.trim())return;p=put("plan",{id:uid(),num:"PP-"+String(Object.keys(DB.plan).length+1).padStart(3,"0"),fecha:d,lines:{},req:{},est:"borr",ts:Date.now(),hist:[]})}p.obsDia=t.value.trim();put("plan",p);render.keep=true;commit()}
+  if(t.dataset.semobs!=null){const lun=UI.semLun||lunesDe(today());const d=semDias(lun)[+t.dataset.semobs];let p=planDe(d);if(!p){if(!t.value.trim())return;p=put("plan",{id:uid(),num:ppNum(),fecha:d,lines:{},req:{},est:"borr",ts:Date.now(),hist:[]})}p.obsDia=t.value.trim();put("plan",p);render.keep=true;commit()}
   if(t.id==="pfecha"){const p=curPlan();p.fecha=t.value||p.fecha;put("plan",p);commit()}
   if(t.id==="oc_add"&&t.value){ocRead();UI.oce.lines.push({mp:t.value,q:MP(t.value).u==="kg"?10:100,p:MP(t.value).cost});ocSheet()}
   if(t.id==="oc_prov"&&t.value==="__new"){ocRead();UI.provBack=true;provSheet(null,UI.oce.cat)}
@@ -1371,7 +1386,7 @@ function pull(){if(!API||SY.busy)return Promise.resolve();SY.busy=true;
   return api("getEstado",syncName()).then(txt=>{SY.busy=false;let r=null;try{r=txt?JSON.parse(txt):null}catch(e){}
     if(!r){if(live(DB.mov).length||live(DB.plan).length||live(DB.oc).length)DIRTY=true}
     else if(merge(r)){VER++;LS.set(dbKey(),DB);if(!$("#mdl"))render()}
-    SY.st="ok";bkPill();if(DIRTY)push()}).catch(()=>{SY.busy=false;SY.st="err";bkPill()})}
+    if(r&&SES)limpiaBorradores();SY.st="ok";bkPill();if(DIRTY)push()}).catch(()=>{SY.busy=false;SY.st="err";bkPill()})}
 let pushT=null;function schedulePush(){clearTimeout(pushT);pushT=setTimeout(pull,1200)}
 function push(){if(!API)return;if(SY.busy){SY.again=true;return}SY.busy=true;SY.st="sync";bkPill();const snap=JSON.stringify(DB);const v=VER;
   api("guardar",{vend:syncName(),fecha:today(),at:new Date().toISOString(),disp:"Planta · "+(SES?SES.u:"")+" · "+(navigator.userAgent||"").slice(0,100),pedidos:[],cobros:[],visitas:[],state:snap})
@@ -1435,7 +1450,8 @@ function setF(p,fid,kg){const rs=rowsOfF(fid);if(!rs.length){p.lines[fid]=Math.m
 function addF(p,fid,dkg){const rs=rowsOfF(fid);if(!rs.length){p.lines[fid]=Math.max(0,(+p.lines[fid]||0)+dkg);return}p.req=p.req||{};const r=rs[0];p.req[r.id]=Math.max(0,Math.round(((+p.req[r.id]||0)+dkg/kglOf(r))*100)/100);syncLines(p)}
 function lunesDe(d){const x=new Date(d+"T12:00:00");const w=(x.getDay()+6)%7;return addD(d,-w)}
 function semDias(lun){return [0,1,2,3,4].map(i=>addD(lun,i))}
-function planDe(fecha){return planes().find(p=>p.fecha===fecha)}
+function ppNum(){const n=Object.values(DB.plan).reduce((m,p)=>Math.max(m,+(String(p.num||"").replace(/\D/g,""))||0),0);return "PP-"+String(n+1).padStart(3,"0")}
+function planDe(fecha){return planes().find(p=>p.fecha===fecha&&!p.dir)}
 /* elaborado por fila: kg empacados de ese producto en el lote del día, repartidos entre filas del mismo código según lo requerido */
 function elabDia(p){const out={};if(!p||!p.real)return out;const R=p.real.f||{};
   Object.values(R).forEach(x=>Object.entries(x.split||{}).forEach(([sku,q])=>{const kg=q*PTD[sku].kgu;const rs=DATA.SEM.filter(r=>r.sku===sku);if(!rs.length)return;
@@ -1468,7 +1484,7 @@ function semView(){
    `<div style="display:flex;gap:8px;margin-top:4px">${has("plan")?`<button class="btn sec" style="flex:1" data-act="semsug">✨ Sugerir semana</button>`:""}<button class="btn sec" style="flex:1" data-act="semcsv">⬇️ Excel (mismo formato)</button></div>`+obs;
 }
 function semSet(i,id,v){const lun=UI.semLun||lunesDe(today());const d=semDias(lun)[i];let p=planDe(d);
-  if(!p){if(!(v>0))return;p=put("plan",{id:uid(),num:"PP-"+String(Object.keys(DB.plan).length+1).padStart(3,"0"),fecha:d,lines:{},req:{},est:"borr",ts:Date.now(),sem:fcorta(lun),hist:[]})}
+  if(!p){if(!(v>0))return;p=put("plan",{id:uid(),num:ppNum(),fecha:d,lines:{},req:{},est:"borr",ts:Date.now(),sem:fcorta(lun),hist:[]})}
   if(p.est!=="borr")return toast("Ese día ya no está en borrador");p.req=p.req||{};if(v>0)p.req[id]=v;else delete p.req[id];syncLines(p);put("plan",p);render.keep=true;commit()}
 function semCsv(){const lun=UI.semLun||lunesDe(today());const dias=semDias(lun);const ps=dias.map(planDe);const E=ps.map(elabDia);
   const rows=[["CONTROL SEMANAL DEL REQUERIMIENTO PRODUCCION","","SEMANA DEL "+fcorta(dias[0])+" AL "+fcorta(dias[4])],[],["CODIGO","DESCRIPCION PRODUCTOS",...dias.flatMap(d=>[DIAS[new Date(d+"T12:00:00").getDay()].toUpperCase()+" REQUER.","ELAB.","LOG."]),"KG/LOTE","TOTAL KG REQUER.","TOTAL KG ELAB.","LOG."]];
@@ -1479,7 +1495,7 @@ function semCsv(){const lun=UI.semLun||lunesDe(today());const dias=semDias(lun);
 /* semana real del Excel (16 al 20 nov 2026) para el modo prueba */
 function demoSemana(){const lun="2026-11-16";const dias=semDias(lun);const SEM3=DEMO_SEM;
   dias.forEach((d,i)=>{const req={},el={};SEM3.forEach(x=>{if(x.q[i])req[x.id]=x.q[i];if(x.e[i])el[x.id]=x.e[i]});if(!Object.keys(req).length&&!Object.keys(el).length)return;
-    const p={id:uid(),num:"PP-"+String(Object.keys(DB.plan).length+1).padStart(3,"0"),fecha:d,lines:{},req,est:"borr",ts:Date.now()+i,sem:fcorta(lun),hist:[],obsDia:"Semana real del Excel (prueba)"};syncLines(p);
+    const p={id:uid(),num:ppNum(),fecha:d,lines:{},req,est:"borr",ts:Date.now()+i,sem:fcorta(lun),hist:[],obsDia:"Semana real del Excel (prueba)"};syncLines(p);
     if(Object.keys(el).length&&d<today()){const f={};Object.entries(el).forEach(([id,v])=>{const r=SEMR[id];const fid=PTD[r.sku].f;const kg=v*kglOf(r);const x=f[fid]||(f[fid]={masa:0,horno:0,rec:0,kg:0,split:{},cstd:costF(fid),creal:costF(fid),merma:0.01});x.masa+=kg/F(fid).rend;x.horno+=kg;x.rec+=kg*0.99;x.kg+=kg*0.99;x.split[r.sku]=(x.split[r.sku]||0)+kg*0.99/PTD[r.sku].kgu});
       p.est="cerr";p.lote=String(NEXTLOTE()+i);p.real={f,cond:{},ts:Date.now(),by:"prueba",obs:""};p.emp={by:"prueba",ts:Date.now()};p.lib={by:"prueba",ts:Date.now()}}
     put("plan",p)});setCfg("nextLote",NEXTLOTE()+5);UI.semLun=lun}
