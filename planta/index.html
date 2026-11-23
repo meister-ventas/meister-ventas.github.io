@@ -514,6 +514,15 @@ const dec = u => (u==="kg"||u==="L")?1:0;
 /* ---------- roles y permisos ---------- */
 const person = id => PEOPLE.find(p=>p.id===id);
 const LIMPIA_BORR=Date.UTC(2026,10,20,16,50);
+/* proveedores: nombres corregidos y duplicados unidos (mismo nombre) */
+const PROV_REN={"diprolacs":"Diprolaca","disprolaca":"Diprolaca"};
+function arreglaProvs(){if(isTest())return;const norm=n=>String(n||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");let ch=0;
+  const L=Object.values(DB.prov).filter(p=>!p._del);L.forEach(p=>{const r=PROV_REN[norm(p.n)];if(r&&p.n!==r){p.n=r;put("prov",p);ch++}if(p.rif&&p.rif!==p.rif.toUpperCase()){p.rif=p.rif.toUpperCase();put("prov",p);ch++}});
+  const g={};L.forEach(p=>{(g[norm(p.n)]=g[norm(p.n)]||[]).push(p)});
+  Object.values(g).filter(a=>a.length>1).forEach(a=>{a.sort((x,y)=>(x._t||0)-(y._t||0));const k=a[0];const lg=(x,y)=>String(y||"").length>String(x||"").length?y:x;
+    a.slice(1).forEach(p=>{k.cats=[...new Set([...(k.cats||[]),...(p.cats||[])])];k.tel=lg(k.tel,p.tel);k.rif=lg(k.rif,p.rif);k.lead=k.lead||p.lead;
+      Object.values(DB.oc).filter(o=>o.prov===p.id).forEach(o=>{o.prov=k.id;put("oc",o)});p._del=1;put("prov",p)});put("prov",k);ch++});
+  if(ch)commit()}
 function limpiaBorradores(){if(isTest()||DB.cfg.clean1)return;let n=0;Object.values(DB.plan).forEach(p=>{if(!p._del&&p.est==="borr"&&(p.ts||0)<LIMPIA_BORR){p._del=1;put("plan",p);n++}});Object.values(DB.oc).forEach(o=>{if(!o._del&&o.est==="borr"&&(o.ts||0)<LIMPIA_BORR){o._del=1;put("oc",o);n++}});setCfg("clean1",1);if(n)commit()}
 function rolesOf(pid){if(DB.cfg.roles&&!DB.cfg.rv3){DB.cfg.rv3=1;DB.cfg.roles.leyci=DEF_ROLES.leyci.slice()}if(pid==="prueba")return Object.keys(ROLES);const r=DB.cfg.roles&&DB.cfg.roles[pid];return r||DEF_ROLES[pid]||[]}
 const EU = () => SES ? (SES.u==="prueba"&&SES.as?SES.as:SES.u) : null;
@@ -924,7 +933,7 @@ function ocCard(o,ed){const tot=o.lines.reduce((a,l)=>a+(+l.q||0)*(+l.p||0),0);c
   ${o.rec?`<div class="muted">Recibió ${esc(nameOf(o.rec.by))} · ${dlab(iso(o.rec.ts))} ${hhmm(o.rec.ts)}${o.rec.doc?" · doc. "+esc(o.rec.doc):""}</div>`:""}
   ${ed?`<div class="oa" style="margin-top:8px">${o.est==="borr"?`<button class="btn sec sm" data-act="ocedit" data-id="${o.id}">✏️ Editar</button><button class="btn sm" data-act="ocsend" data-id="${o.id}">📤 Enviar al proveedor</button>`:o.est==="env"?`<button class="btn sec sm" data-act="ocedit" data-id="${o.id}">✏️ Editar</button><button class="btn sec sm" data-act="ocwa" data-id="${o.id}">💬 Reenviar</button><span class="muted" style="align-self:center">La recibe Almacén</span>`:""}</div>`:""}${o.est==="rec"&&(has("almmp")||has("admin"))?`<div class="oa" style="margin-top:8px"><button class="btn sec sm" data-act="ocrec" data-id="${o.id}">✏️ Corregir recepción</button>${o.rec&&o.rec.ed?`<span class="muted" style="align-self:center">Corregida ${fcorta(iso(o.rec.ed.ts))} · ${esc(nameOf(o.rec.ed.by))}</span>`:""}</div>`:""}</div>`}
 function ocText(o){const p=provGet(o.prov);return `MEISTER · Orden de compra ${o.num}\n${CATS[o.cat].n}\nFecha: ${fcorta(iso(o.ts))}${provName(o.prov)?"\nProveedor: "+provName(o.prov):""}\n\n`+o.lines.map(l=>`• ${nf(l.q,1)} ${MP(l.mp).u} — ${MP(l.mp).n}`).join("\n")+(o.nota?"\n\nNota: "+o.nota:"")+`\n\nFavor confirmar disponibilidad y fecha de entrega${p&&p.lead?" (esperamos en "+p.lead+" días)":""}.`}
-function ocSheet(){const o=UI.oce;const ps=provs().filter(p=>p.cats.includes(o.cat));openModal(`<div class="grab"></div><h3>${o.dir?"🚛 Llegó mercancía · ":esc(o.num)+" · "}${CATS[o.cat].n}</h3>${o.dir?`<div class="muted">Sin orden de compra. Elige el proveedor y lo que llegó; luego registras lote, vencimiento y temperatura.</div>`:""}
+function ocSheet(){const o=UI.oce;const ps=provs().filter(p=>!(p.cats||[]).length||p.cats.includes(o.cat)||p.id===o.prov);openModal(`<div class="grab"></div><h3>${o.dir?"🚛 Llegó mercancía · ":esc(o.num)+" · "}${CATS[o.cat].n}</h3>${o.dir?`<div class="muted">Sin orden de compra. Elige el proveedor y lo que llegó; luego registras lote, vencimiento y temperatura.</div>`:""}
   <label class="f">Proveedor</label><select id="oc_prov"><option value="">— Elegir —</option>${ps.map(p=>`<option value="${p.id}" ${o.prov===p.id?"selected":""}>${esc(p.n)} · ${p.lead||0} días</option>`).join("")}<option value="__new">＋ Nuevo proveedor…</option></select>
   <div style="display:flex;gap:8px;margin-top:6px"><button class="btn sec sm" data-act="ocprovnew">＋ Nuevo proveedor</button><button class="btn sec sm" data-act="ocprovedit">✏️ Editar proveedor</button></div>
   <div class="qrow muted" style="padding:6px 0 0"><div class="main"></div><span style="width:76px;text-align:center">Cant.</span><span style="width:66px;text-align:center">$ c/u</span><span style="width:20px"></span></div>
@@ -935,7 +944,7 @@ function ocSheet(){const o=UI.oce;const ps=provs().filter(p=>p.cats.includes(o.c
   <button class="btn full big" style="margin-top:12px" data-act="ocsave">${o.dir&&!DB.oc[o.id]?"Continuar a recepción →":DB.oc[o.id]?"Guardar cambios":"Guardar"}</button>${DB.oc[o.id]?`<button class="btn ghost full" data-act="ocdel">${o.est==="borr"?"Eliminar borrador":"🗑️ Anular orden"}</button>`:""}`)}
 function provListSheet(){UI.provBack=false;openModal(`<div class="grab"></div><h3>🤝 Proveedores</h3><button class="btn full" data-act="provnew" style="margin:6px 0 10px">＋ Nuevo proveedor</button>
   ${provs().map(p=>`<button class="irow" data-prov="${p.id}"><span class="av sm" style="margin:0">${ini(p.n)}</span><div class="main"><div class="nm">${esc(p.n)}</div><div class="meta">${p.cats.map(c=>CATS[c].ico+" "+CATS[c].s).join(" · ")}${p.tel?" · "+esc(p.tel):""}</div></div><span class="muted">✏️</span></button>`).join("")||`<div class="empty">Aún no hay proveedores.</div>`}`)}
-function provSheet(id,cat){const p=id?provGet(id):{id:uid(),n:"",cats:cat?[cat]:MPC.filter(c=>has("c"+c)).slice(0,1),lead:2,tel:"",rif:""};UI.pv=JSON.parse(JSON.stringify(p));
+function provSheet(id,cat){const p=id?provGet(id):{id:uid(),n:"",cats:cat?[cat]:(MPC.filter(c=>has("c"+c)).slice(0,1).length?MPC.filter(c=>has("c"+c)).slice(0,1):[]),lead:2,tel:"",rif:""};UI.pv=JSON.parse(JSON.stringify(p));
   openModal(`<div class="grab"></div><h3>${id?"Proveedor":"Nuevo proveedor"}</h3>
   <label class="f">Nombre</label><input id="pv_n" value="${esc(p.n)}"><label class="f">RIF</label><input id="pv_rif" value="${esc(p.rif||"")}">
   <label class="f">Teléfono / WhatsApp</label><input id="pv_tel" value="${esc(p.tel||"")}" placeholder="58414…">
@@ -1279,7 +1288,7 @@ document.addEventListener("click",e=>{
   case"ocnew":UI.oce={id:uid(),num:ocNum(),cat:d.cat,lines:[],est:"borr",ts:Date.now()};ocSheet();break;
   case"ocedit":UI.oce=JSON.parse(JSON.stringify(DB.oc[d.id]));ocSheet();break;
   case"ocrm":ocRead();UI.oce.lines.splice(+d.i,1);ocSheet();break;
-  case"ocsave":{ocRead();if(!UI.oce.lines.length)return toast("Agrega al menos un material");if(UI.oce.dir&&!DB.oc[UI.oce.id]){const o=UI.oce;o.est="env";o.env=Date.now();o.nota=o.nota||"Recepción sin orden de compra";put("oc",o);commit();track("recepcion_directa",{cat:o.cat});ocRecSheet(o.id);break}if(DB.oc[UI.oce.id]&&UI.oce.est!=="borr"){UI.oce.eds=(UI.oce.eds||[]).concat({ts:Date.now(),by:SES.u});track("orden_editada",{est:UI.oce.est})}put("oc",UI.oce);closeModal();commit();toast(DB.oc[UI.oce.id]&&UI.oce.est!=="borr"?"Orden actualizada":"Orden guardada");break}
+  case"ocsave":{ocRead();if(!UI.oce.lines.length)return toast("Agrega al menos un material");{const pv=DB.prov[UI.oce.prov];if(pv&&!(pv.cats||[]).includes(UI.oce.cat)){pv.cats=[...(pv.cats||[]),UI.oce.cat];put("prov",pv)}}if(UI.oce.dir&&!DB.oc[UI.oce.id]){const o=UI.oce;o.est="env";o.env=Date.now();o.nota=o.nota||"Recepción sin orden de compra";put("oc",o);commit();track("recepcion_directa",{cat:o.cat});ocRecSheet(o.id);break}if(DB.oc[UI.oce.id]&&UI.oce.est!=="borr"){UI.oce.eds=(UI.oce.eds||[]).concat({ts:Date.now(),by:SES.u});track("orden_editada",{est:UI.oce.est})}put("oc",UI.oce);closeModal();commit();toast(DB.oc[UI.oce.id]&&UI.oce.est!=="borr"?"Orden actualizada":"Orden guardada");break}
   case"ocdel":{const o=DB.oc[UI.oce.id];if(o.est!=="borr"&&!confirm("¿Anular la orden "+o.num+"? No se podrá recibir."))return;o._del=1;put("oc",o);closeModal();commit();break}
   case"ocsend":{const o=DB.oc[d.id];if(!o.prov&&!confirm("La orden no tiene proveedor. ¿Enviar igual?"))return;o.est="env";o.env=Date.now();put("oc",o);track("compra_enviada",{cat:o.cat});commit();shareText(ocText(o),provGet(o.prov));break}
   case"ocwa":shareText(ocText(DB.oc[d.id]),provGet(DB.oc[d.id].prov));break;
@@ -1422,7 +1431,7 @@ function pull(){if(!API||SY.busy)return Promise.resolve();SY.busy=true;
   return api("getEstado",syncName()).then(txt=>{SY.busy=false;let r=null;try{r=txt?JSON.parse(txt):null}catch(e){}
     if(!r){if(live(DB.mov).length||live(DB.plan).length||live(DB.oc).length)DIRTY=true}
     else if(merge(r)){VER++;LS.set(dbKey(),DB);if(!$("#mdl"))render()}
-    if(r&&SES)limpiaBorradores();SY.st="ok";bkPill();if(DIRTY)push()}).catch(()=>{SY.busy=false;SY.st="err";bkPill()})}
+    if(r&&SES){limpiaBorradores();arreglaProvs()}SY.st="ok";bkPill();if(DIRTY)push()}).catch(()=>{SY.busy=false;SY.st="err";bkPill()})}
 let pushT=null;function schedulePush(){clearTimeout(pushT);pushT=setTimeout(pull,1200)}
 function push(){if(!API)return;if(SY.busy){SY.again=true;return}SY.busy=true;SY.st="sync";bkPill();const snap=JSON.stringify(DB);const v=VER;
   api("guardar",{vend:syncName(),fecha:today(),at:new Date().toISOString(),disp:"Planta · "+(SES?SES.u:"")+" · "+(navigator.userAgent||"").slice(0,100),pedidos:[],cobros:[],visitas:[],state:snap})
