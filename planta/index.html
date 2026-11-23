@@ -643,7 +643,8 @@ function render(){
   if(!SES||!person(SES.u)){a.classList.remove("wide");a.innerHTML=loginView();return}if(SES.as&&!person(SES.as))SES.as=null;
   const v={home,ped:pedView,verif:verifView,plan:planView,exp:expView,inv:invView,comp:compView,rec:recView,prod:prodView,transito:transView,empq:empView,cal:calView,desp:despView,bal:balView}[UI.tab]||home;
   a.classList.toggle("wide",window.innerWidth>760&&((UI.tab==="plan"&&(UI.sub.planv||"sem")==="sem")||UI.tab==="bal"||UI.tab==="empq"));
-  a.innerHTML=shell(v());
+  let html;try{html=shell(v())}catch(e){reportErr(e,"render:"+UI.tab);if(UI.tab!=="home"){UI.tab="home";UI.sub={};try{html=shell(home())}catch(e2){reportErr(e2,"render:home");html=errView(e2)}}else html=errView(e)}
+  a.innerHTML=html;
   if(render.keep){window.scrollTo(0,y);render.keep=false}
   bkPill();
 }
@@ -1418,10 +1419,22 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden&&SES){pull
 window.addEventListener("online",()=>{if(SES)pull()});
 
 /* ---------- medición de uso (PostHog) ---------- */
+/* errores: se reportan a la analítica y nunca dejan la pantalla en blanco */
+function reportErr(e,where){try{const m=String(e&&e.message||e).slice(0,300);const st=String(e&&e.stack||"").split("\n").slice(0,4).join(" | ").slice(0,600);console.error(e);if(window.posthog&&posthog.capture)posthog.capture("error_app",{app:"meister-planta",usuario:SES&&SES.u,donde:where,msg:m,stack:st,tab:UI&&UI.tab,prueba:isTest()})}catch(x){}}
+window.addEventListener("error",ev=>reportErr(ev.error||ev.message,"global"));
+window.addEventListener("unhandledrejection",ev=>reportErr(ev.reason,"promesa"));
+function errView(e){return `<div style="padding:40px 22px;text-align:center;max-width:420px;margin:0 auto"><div style="font-size:44px">🛠️</div><h2 style="margin:10px 0 6px">La app tuvo un problema al abrir</h2>
+  <p class="muted">Ya nos llegó el aviso. Prueba primero <b>Reintentar</b>. Si sigue igual, toca <b>Reparar</b>: vuelve a cargar los datos desde el respaldo del Drive.</p>
+  <button class="btn full big" onclick="location.reload()">↻ Reintentar</button>
+  <button class="btn sec full big" style="margin-top:10px" onclick="reparar()">🧹 Reparar</button>
+  <button class="btn ghost full" style="margin-top:10px" onclick="try{localStorage.removeItem('${SKEY}')}catch(x){};location.reload()">Salir y entrar con otro usuario</button>
+  <p class="muted" style="font-size:11px;margin-top:16px;word-break:break-word">${esc(String(e&&e.message||e)).slice(0,160)}</p></div>`}
+function reparar(){try{track("app_reparada");[VKEY,DKEY,dbKey(),dbKey()+"-dirty",dbKey()+"-last"].forEach(k=>localStorage.removeItem(k))}catch(x){}setTimeout(()=>location.reload(),300)}
+window.reparar=reparar;
 function identify(){try{const u=person(SES.u);if(u&&window.posthog&&posthog.identify){posthog.identify("planta-"+u.id,{name:u.n+" (Planta)",rol:cargo(u.id),app:"meister-planta"});track("entro_app")}}catch(e){}}
 
 /* ---------- arranque ---------- */
-render();
+try{render()}catch(e){reportErr(e,"arranque")}
 if(SES&&person(SES.u)){identify();pull();fetchVend()}
 
 /* ---------- modo prueba: pedidos simulados y "ver como" ---------- */
