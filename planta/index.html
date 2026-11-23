@@ -1315,16 +1315,22 @@ document.addEventListener("click",e=>{
   case"pstart":{const p=DB.plan[d.id];const ms=PEOPLE.filter(x=>!x.test&&(rolesOf(x.id).includes("receta")||rolesOf(x.id).includes("cap")));openModal(`<div class="grab"></div><h3>Iniciar producción</h3><div class="muted">${dlab(p.fecha)} · ${nf(planKg(p),0)} kg</div>
     <div style="display:flex;gap:8px"><div style="flex:1"><label class="f">Nº de lote</label><input id="ps_l" type="number" value="${NEXTLOTE()}"></div><div style="flex:1.6"><label class="f">Maestro charcutero en la cocina</label><select id="ps_m">${ms.map(x=>`<option>${esc(x.n)}</option>`).join("")}</select></div></div>
     <div class="sec-t">EPP del personal (obligatorio)</div>${["Mascarilla / tapabocas","Guantes de protección","Lentes de seguridad","Gorro / cofia","Botas de seguridad"].map(e=>`<label class="chk" style="border:0;padding:4px 0"><input type="checkbox" data-epp> ${e}</label>`).join("")}
-    ${piezasAgenda(p)}<button class="btn full big" style="margin-top:12px" data-act="pstartok" data-id="${p.id}">▶️ Iniciar lote</button>`);break}
-  case"pstartok":{const p=DB.plan[d.id];if($$("[data-epp]").some(x=>!x.checked))return toast("Verifica todo el EPP antes de iniciar");p.epp={ts:Date.now(),by:SES.u};const n=Math.round(num($("#ps_l").value)||NEXTLOTE());if(planes().some(x=>x.lote===String(n))&&!confirm("El lote "+n+" ya existe. ¿Usarlo igual?"))return;planHist(p,"proc");p.lote=String(n);p.maestro=$("#ps_m").value;put("plan",p);setCfg("nextLote",n+1);closeModal();track("produccion_iniciada");commit();toast("Producción iniciada · lote "+p.lote);break}
+    ${piezasAgenda(p)}<div class="alert blu" style="margin-top:8px"><span>📦</span><div>Al iniciar se <b>descuentan del inventario</b> las carnes y condimentos de la receta para los kg del plan. Al cerrar el lote se ajusta con lo que de verdad se usó.</div></div><button class="btn full big" style="margin-top:12px" data-act="pstartok" data-id="${p.id}">▶️ Iniciar lote</button>`);break}
+  case"pstartok":{const p=DB.plan[d.id];if($$("[data-epp]").some(x=>!x.checked))return toast("Verifica todo el EPP antes de iniciar");p.epp={ts:Date.now(),by:SES.u};const n=Math.round(num($("#ps_l").value)||NEXTLOTE());if(planes().some(x=>x.lote===String(n))&&!confirm("El lote "+n+" ya existe. ¿Usarlo igual?"))return;planHist(p,"proc");p.lote=String(n);p.maestro=$("#ps_m").value;descStd(p);put("plan",p);setCfg("nextLote",n+1);closeModal();track("produccion_iniciada");commit();toast("Producción iniciada · lote "+p.lote);break}
   case"pclose":closeSheet(d.id);break;
   case"pcloseok":{const p=DB.plan[d.id];const R={};
     Object.keys(p.lines).filter(f=>p.lines[f]>0).forEach(fid=>{R[fid]={masa:num($(`[data-rmasa="${fid}"]`).value)||0,horno:num($(`[data-rhor="${fid}"]`).value)||0}});
     const bad=Object.entries(R).filter(([f,x])=>x.masa&&x.horno>x.masa*1.02);if(bad.length&&!confirm(F(bad[0][0]).n+": sale más de lo que entró. ¿Guardar igual?"))return;
     const cond={};$$("[data-cond]").forEach(x=>cond[x.dataset.cond]=x.value);
     const cons={},mlots=[];Object.entries(R).forEach(([fid,x])=>{const f=F(fid);x.cstd=costF(fid);let c0=0;Object.entries(f.lines).forEach(([m,c])=>{if(DATA.BAGS.includes(m)||m==="ETI")return;const q=MP(m).cat==="emp"?c*x.horno:c*f.rend*x.masa;c0+=q*MP(m).cost;
-      if(MP(m).cat==="car"&&q>1e-9){const sel=($(`[data-mlot="${fid}|${m}"]`)||{}).value;consumeFrom(m,q,sel,"consumo",p.lote||p.num).forEach(a=>mlots.push({fid,mp:m,lote:a.lote,q:a.q}))}else cons[m]=(cons[m]||0)+q});x.cmat=c0});
-    Object.entries(cons).forEach(([m,q])=>{if(q>1e-9)consumeFIFO(m,q,"consumo",p.lote||p.num)});
+      if(MP(m).cat==="car"&&q>1e-9){const sel=($(`[data-mlot="${fid}|${m}"]`)||{}).value;(UI.msel=UI.msel||{})[m]=sel||UI.msel[m]||"";(UI.mfid=UI.mfid||{})[m]=fid}cons[m]=(cons[m]||0)+q});x.cmat=c0});
+    const ref=p.lote||p.num,D=p.desc||{},A=p.mdesc||[];
+    Object.entries(cons).forEach(([m,q])=>{const isC=MP(m).cat==="car";const ya=D[m]||0;const sel=isC?(UI.msel||{})[m]:"";const mine=A.filter(a=>a.mp===m);
+      if(isC&&sel&&mine.length&&!mine.some(a=>a.lote===sel)){mine.forEach(a=>addMov(m,a.q,"devolucion",ref,"Cambio de lote al cerrar",a.lote));consumeFrom(m,q,sel,"consumo",ref).forEach(a=>mlots.push({fid:UI.mfid[m],mp:m,lote:a.lote,q:a.q}));return}
+      const df=q-ya;let used=mine.map(a=>({lote:a.lote,q:a.q}));
+      if(df>1e-9){const ex=isC?consumeFrom(m,df,sel,"consumo",ref):consumeFIFO(m,df,"consumo",ref);used=used.concat(ex)}
+      else if(df<-1e-9){let back=-df;for(const a of mine.slice().reverse()){if(back<=1e-9)break;const t=Math.min(back,a.q);addMov(m,t,"devolucion",ref,"Sobró de lo descontado al iniciar",a.lote);const u=used.find(x=>x.lote===a.lote);if(u)u.q-=t;back-=t}if(back>1e-9)addMov(m,back,"devolucion",ref,"Sobró de lo descontado al iniciar")}
+      if(isC)used.filter(u=>u.q>1e-9).forEach(u=>mlots.push({fid:(UI.mfid||{})[m],mp:m,lote:u.lote,q:u.q}))});UI.msel={};UI.mfid={};
     const obs=$("#pc_obs").value;planHist(p,"emp",obs);p.real={f:R,cond,mlots,ts:Date.now(),by:SES.u,obs};put("plan",p);closeModal();
     track("produccion_cerrada",{plan_kg:planKg(p),entregado:Object.values(R).reduce((a,x)=>a+x.horno,0)});commit();toast("Producción cerrada · pasa a Empaque");break}
   case"emp":empSheet(d.id);break;
@@ -1431,7 +1437,7 @@ function pull(){if(!API||SY.busy)return Promise.resolve();SY.busy=true;
   return api("getEstado",syncName()).then(txt=>{SY.busy=false;let r=null;try{r=txt?JSON.parse(txt):null}catch(e){}
     if(!r){if(live(DB.mov).length||live(DB.plan).length||live(DB.oc).length)DIRTY=true}
     else if(merge(r)){VER++;LS.set(dbKey(),DB);if(!$("#mdl"))render()}
-    if(r&&SES){limpiaBorradores();arreglaProvs()}SY.st="ok";bkPill();if(DIRTY)push()}).catch(()=>{SY.busy=false;SY.st="err";bkPill()})}
+    if(r&&SES){limpiaBorradores();arreglaProvs();descPendientes()}SY.st="ok";bkPill();if(DIRTY)push()}).catch(()=>{SY.busy=false;SY.st="err";bkPill()})}
 let pushT=null;function schedulePush(){clearTimeout(pushT);pushT=setTimeout(pull,1200)}
 function push(){if(!API)return;if(SY.busy){SY.again=true;return}SY.busy=true;SY.st="sync";bkPill();const snap=JSON.stringify(DB);const v=VER;
   api("guardar",{vend:syncName(),fecha:today(),at:new Date().toISOString(),disp:"Planta · "+(SES?SES.u:"")+" · "+(navigator.userAgent||"").slice(0,100),pedidos:[],cobros:[],visitas:[],state:snap})
@@ -1559,6 +1565,13 @@ window.addEventListener("resize",()=>{clearTimeout(window.__rz);window.__rz=setT
 /* ---------- lotes de carne por proveedor ---------- */
 function origenLote(item,lote){const rc=live(DB.mov).find(x=>x.tipo==="compra"&&x.item===item&&x.lote===lote);const oc=rc&&ocs().find(o=>o.num===rc.ref);
   return {prov:oc?(provName(oc.prov)||"Proveedor"):(lote==="SIN-LOTE"?"Sin registro":/^INI|^AJ|^EJ/.test(lote)?"Inv. inicial":"—"),f:rc?rc.fecha:null}}
+/* descuento estándar al iniciar el lote: receta × kg del plan (carnes y no cárnicos). Ids fijos: nunca se descuenta dos veces */
+function stdNeeds(p){const need={};Object.entries(p.lines||{}).forEach(([fid,kg])=>{const f=F(fid);if(!f||!(kg>0))return;Object.entries(f.lines).forEach(([m,c])=>{const mp=MP(m);if(!mp||DATA.BAGS.includes(m)||mp.cat==="emp")return;need[m]=(need[m]||0)+c*kg})});return need}
+function descStd(p){if(p.desc||p.real)return;const need=stdNeeds(p);const al=[];const ref=p.lote||p.num;
+  Object.entries(need).forEach(([m,q])=>{let rest=q,i=0;const mk=(lote,vence,t)=>{const id="ds-"+p.id+"-"+m+"-"+(i++);if(!DB.mov[id])put("mov",{id,ts:Date.now(),fecha:today(),item:m,q:-Math.round(t*1000)/1000,tipo:"consumo",ref,nota:"Descuento al iniciar (receta)",lote,vence:vence||null});al.push({mp:m,lote,q:t})};
+    for(const l of lotsOf(m).filter(l=>libre(m,l))){if(rest<=1e-9)break;const t=Math.min(rest,l.q);mk(l.lote,l.vence,t);rest-=t}if(rest>1e-9)mk("SIN-LOTE",null,rest)});
+  p.desc=need;p.mdesc=al}
+function descPendientes(){if(isTest())return;let n=0;live(DB.plan).forEach(p=>{if(p.est==="proc"&&!p.desc&&!p.real){descStd(p);put("plan",p);n++}});if(n)commit()}
 function consumeFrom(item,qty,lote,tipo,ref){const out=[];let rest=qty;const l=lote&&lotsOf(item).find(x=>x.lote===lote);
   if(l&&l.q>0){const t=Math.min(rest,l.q);addMov(item,-t,tipo,ref,"",l.lote,l.vence);out.push({lote:l.lote,q:t});rest-=t}
   if(rest>1e-9)consumeFIFO(item,rest,tipo,ref).forEach(a=>out.push(a));return out}
