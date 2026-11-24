@@ -555,7 +555,7 @@ function reportes(){
   <div class="card"><h3>Cartera por antigüedad · ${usd(bt)}</h3><div class="bar">${b.map((x,i)=>`<span style="width:${bt?x/bt*100:0}%;background:${BUCK[i][1]}"></span>`).join("")}</div>
   <div class="leg">${b.map((x,i)=>`<span><i style="background:${BUCK[i][1]}"></i>${BUCK[i][0]} ${usd(x)}</span>`).join("")}</div>
   <p class="muted" style="margin:8px 0 0">Vencido: <b>${bt?Math.round((bt-b[0])/bt*100):0}%</b> de la cartera.</p></div>
-  <div class="card"><h3>Texto del reporte</h3><pre class="rep" id="reptxt">${esc(repText(rows,T,b,bt,efect))}</pre><a class="btn big full" style="margin-top:10px;text-decoration:none;background:#1f8a4c" href="https://wa.me/${waNum()}?text=${encodeURIComponent(repText(rows,T,b,bt,efect))}" target="_blank" rel="noopener">📲 Enviar reporte ${UI.rep==="dia"?"diario":"semanal"} a ${waFmt(waNum())}</a><button class="btn sec full" style="margin-top:8px" data-act="copyrep">Copiar texto</button></div>`}
+  <div class="card"><h3>Texto del reporte</h3><pre class="rep" id="reptxt">${esc(repText(rows,T,b,bt,efect))}</pre><a class="btn big full" style="margin-top:10px;text-decoration:none;background:#1f8a4c" href="https://wa.me/${waNum()}?text=${encodeURIComponent(repText(rows,T,b,bt,efect))}" target="_blank" rel="noopener">📲 Enviar reporte ${UI.rep==="dia"?"diario":"semanal"} a Pedidos</a><button class="btn sec full" style="margin-top:8px" data-act="copyrep">Copiar texto</button></div>`}
 function repText0(rows,T,b,bt,ef){const per=UI.rep==="dia"?`Diario ${fdmy(today)}`:`Semanal ${fdmy(new Date(rows[0].date+"T00:00"))} al ${fdmy(today)}`;
   return `MEISTER · Reporte ${per}\nVendedor: ${S.vend}\n\nVisitas: ${T.visitas||0}\nPedidos: ${T.pedidos||0} (efectividad ${ef}%)\nVenta s/IVA: ${usd(T.venta||0)} · ${T.un||0} und\nCobrado: ${usd(T.cob||0)}\nRetenciones IVA: ${usd(T.ret||0)}\nDevoluciones: ${T.dev||0} und\n\nÓrdenes: ${STATUS.map(([k,l])=>l+" "+S.orders.filter(o=>ost(o)===k).length).join(" · ")}\n\nCartera ${usd(bt)}\n`+BUCK.map((x,i)=>`  ${x[0]}: ${usd(b[i])}`).join("\n")}
 
@@ -1602,7 +1602,7 @@ function cobranza6(){const per=UI.rper||"dia";const L=relList(per);const T=relTo
      <div class="rchk"><button data-entr="${r.ts}|entFac" class="${r.entFac?"on":""}">${r.entFac?"✓":"○"} Entrega facturación</button></div></div>`}).join("")}</div>
    <div class="muted" style="margin:8px 0 0">Facturas entregadas ${T.fac}/${T.n}</div>`:`<p class="muted" style="margin:10px 0 0">${per==="dia"?"Aún no hay cobros hoy.":"Sin cobros en los últimos 7 días."}</p>`}
   <button class="btn big sec full" style="margin-top:12px" data-pay6="1">＋ Registrar cobro</button>
-  ${L.length?`<a class="btn big full" style="margin-top:8px;text-decoration:none;background:#1f8a4c" data-act="${per==="dia"?"sendcob":"sendrel"}" href="https://wa.me/${waNum()}?text=${encodeURIComponent(relText(per))}" target="_blank" rel="noopener">📲 Enviar relación ${per==="dia"?"del día":"semanal"} a ${waFmt(waNum())}</a>
+  ${L.length?`<a class="btn big full" style="margin-top:8px;text-decoration:none;background:#1f8a4c" data-act="${per==="dia"?"sendcob":"sendrel"}" href="https://wa.me/${waNum()}?text=${encodeURIComponent(relText(per))}" target="_blank" rel="noopener">📲 Enviar relación ${per==="dia"?"del día":"semanal"} a Facturación</a>
    <button class="btn ghost full" data-act="copyrel">Copiar texto</button>`:""}</div>
   ${cobranza4()}`}
 function cobText(){return relText("dia")}
@@ -1669,19 +1669,19 @@ function ordenes(){const per=UI.pper||"dia";const L=pedList(per);const T=pedTot(
     <div class="rm"><span class="mono">${o.id}</span> · ${fd(o.date).slice(0,5)} · entrega ${fd(o.entrega).slice(0,5)} · ${esc(o.pdv.nombre)} · ${o.items.length} prod.</div>
     <div class="rm" style="margin-top:6px"><span class="chip ${s==="aprobacion"?"c-amb":s==="emitida"?"c-blu":"c-grn"}">${pedState(o)}</span> ${o.sentFac?'<span class="chip c-grn">✓ enviado a facturación</span>':'<span class="chip">sin enviar</span>'}</div></div>`}).join("")}</div>
    <div class="muted" style="margin:8px 0 0">Enviados a facturación ${T.env}/${T.n} · Facturados ${T.fac}/${T.n}</div>
-   <a class="btn big full" style="margin-top:12px;text-decoration:none;background:#1f8a4c" data-act="sentall" data-per="${per}" href="${waLink(D.pedWa,pedText(per))}" target="_blank" rel="noopener">📲 Enviar relación de pedidos a ${waFmt(D.pedWa)}</a>
+   <a class="btn big full" style="margin-top:12px;text-decoration:none;background:#1f8a4c" data-act="sentall" data-per="${per}" href="${waLink(D.pedWa,pedText(per))}" target="_blank" rel="noopener">📲 Enviar relación de pedidos a Pedidos</a>
    <button class="btn ghost full" data-act="copyped">Copiar texto</button>`:`<p class="muted" style="margin:10px 0 0">${per==="dia"?"Aún no hay pedidos hoy.":"Sin pedidos en los últimos 7 días."}</p>`}
   <button class="btn big sec full" style="margin-top:8px" data-tab="venta">＋ Levantar pedido</button></div>
   ${ordenes1()}`}
 
 /* ---------- confirmación del pedido: enviar a facturación con un toque ---------- */
 function okPage(oid){const o=S.orders.find(x=>x.id===oid);const D=dest();const base=okPage5(oid);
-  const btn=`<a class="btn big full" style="text-decoration:none;background:#fff;color:#1f8a4c" data-act="sentfac" data-id="${o.id}" href="${waLink(D.pedWa,pedOne(o))}" target="_blank" rel="noopener">📲 ${o.sentFac?"Reenviar":"Enviar"} a facturación · ${waFmt(D.pedWa)}</a>`;
+  const btn=`<a class="btn big full" style="text-decoration:none;background:#fff;color:#1f8a4c" data-act="sentfac" data-id="${o.id}" href="${waLink(D.pedWa,pedOne(o))}" target="_blank" rel="noopener">📲 ${o.sentFac?"Reenviar":"Enviar"} a Pedidos</a>`;
   return base.replace('{{FACBTN}}',btn)}
 
 /* ---------- Cobrar: envío por WhatsApp y/o correo ---------- */
 function cobSend(per){const D=dest();const txt=relText(per);const subj=`Relación de Cobranzas · ${S.vend} · ${per==="sem"?"Semana al ":""}${fd(TODAY)}`;let h="";
-  if(D.cobVia!=="mail")h+=`<a class="btn big full" style="margin-top:8px;text-decoration:none;background:#1f8a4c" data-act="${per==="dia"?"sendcob":"sendrel"}" href="${waLink(D.cobWa,txt)}" target="_blank" rel="noopener">📲 Enviar relación ${per==="dia"?"del día":"semanal"} a ${waFmt(D.cobWa)}</a>`;
+  if(D.cobVia!=="mail")h+=`<a class="btn big full" style="margin-top:8px;text-decoration:none;background:#1f8a4c" data-act="${per==="dia"?"sendcob":"sendrel"}" href="${waLink(D.cobWa,txt)}" target="_blank" rel="noopener">📲 Enviar relación ${per==="dia"?"del día":"semanal"} a Facturación</a>`;
   if(D.cobVia!=="wa"&&D.cobMail)h+=`<a class="btn big full" style="margin-top:8px;text-decoration:none;background:var(--blu)" data-act="${per==="dia"?"sendcob":"sendrel"}" href="${mailLink(D.cobMail,subj,txt)}">✉️ Enviar por correo a ${esc(D.cobMail)}</a><div class="muted" style="font-size:11.5px;margin-top:4px;text-align:center">Si no abre tu correo, usa "Copiar texto" y envíalo a ${esc(D.cobMail)}</div>`;
   return h}
 function cobranza(){const per=UI.rper||"dia";let h=cobranza6();
@@ -1699,8 +1699,8 @@ function payModal(cod,n){payModal6(cod,n);
 function adminExtra7(){const D=dest();
   return `<div class="card"><h3>Destinos de pedidos y reportes</h3><p class="muted" style="margin-top:0">A dónde envían los vendedores cada cosa. En el prototipo se abre WhatsApp o el correo con el texto listo y el vendedor toca "Enviar".</p>
   <div class="cfgg">
-   <div><label class="f" style="margin-top:0">📦 Pedidos → WhatsApp de facturación</label><input data-dst="pedWa" value="${waFmt(D.pedWa)}" style="font-size:16px"><div class="muted" style="margin-top:4px">Cada pedido nuevo y la Relación de Pedidos.</div></div>
-   <div><label class="f" style="margin-top:0">💵 Cobranza → WhatsApp</label><input data-dst="cobWa" value="${waFmt(D.cobWa)}" style="font-size:16px"><label class="f">💵 Cobranza → correo</label><input data-dst="cobMail" type="email" value="${esc(D.cobMail)}" placeholder="cobranzas@meister.com.ve" style="font-size:16px"></div>
+   <div><label class="f" style="margin-top:0">📦 Pedidos → WhatsApp de Pedidos</label><input data-dst="pedWa" value="${waFmt(D.pedWa)}" style="font-size:16px"><div class="muted" style="margin-top:4px">Cada pedido nuevo y la Relación de Pedidos.</div></div>
+   <div><label class="f" style="margin-top:0">💵 Cobranza → WhatsApp de Facturación</label><input data-dst="cobWa" value="${waFmt(D.cobWa)}" style="font-size:16px"><label class="f">💵 Cobranza → correo</label><input data-dst="cobMail" type="email" value="${esc(D.cobMail)}" placeholder="cobranzas@meister.com.ve" style="font-size:16px"></div>
    <div><label class="f" style="margin-top:0">La Relación de Cobranzas se envía por</label>
     ${[["wa","Solo WhatsApp"],["mail","Solo correo"],["both","WhatsApp y correo"]].map(([k,l])=>`<label class="chk" style="border:0;padding:5px 0"><input type="radio" name="cobvia" data-cobvia="${k}" ${D.cobVia===k?"checked":""}>${l}</label>`).join("")}</div></div></div>
   ${adminExtra5()}`}
@@ -1739,11 +1739,11 @@ function reportes(){const sec=UI.rsec||"ped";const per=UI.rep==="sem"?"sem":"dia
   if(sec==="ped"){const T=pedTot(pedList(per));kp=`<div class="relk"><div><span>Pedidos</span><b>${T.n}</b></div><div><span>Paq · kg</span><b>${T.paq} · ${(Math.round(T.pz*10)/10).toLocaleString("es-VE")}</b></div><div><span>Monto estimado</span><b class="mono">${usd(T.tot)}</b></div></div>`}
   else{const T=relTot(relList(per));kp=`<div class="relk"><div><span>Bolívares</span><b class="mono">${fmtBs(T.bs)}</b></div><div><span>Divisas</span><b class="mono">${usd(T.usd)}</b></div><div><span>Total equiv.</span><b class="mono">${usd(T.eq)}</b></div></div>`;const rp=retPend();kp+=`<button class="retk" data-cm="ret" data-tab="cob">🧾 <span>Total retenciones pendientes</span><b class="mono">${usd(rp.reduce((a,p)=>a+p.ret,0))}</b><small>${rp.length} sin comprobante ›</small></button>`}
   const mailBtn=sec==="cob"&&D.cobVia!=="wa"&&D.cobMail?`<a class="btn big full" style="margin-top:8px;text-decoration:none;background:var(--blu)" data-sendrep="cob" data-per="${per}" href="${mailLink(D.cobMail,`Relación de Cobranzas · ${S.vend} · ${fd(TODAY)}`,txt)}">✉️ Enviar por correo a ${esc(D.cobMail)}</a>`:"";
-  const waBtn=sec==="cob"&&D.cobVia==="mail"?"":`<a class="btn big full" style="margin-top:12px;text-decoration:none;background:#1f8a4c" data-sendrep="${sec}" data-per="${per}" href="${waLink(num,txt)}" target="_blank" rel="noopener">📲 Enviar ${sec==="ped"?"reporte de pedidos":"relación de cobranzas"}${per==="sem"?" semanal":" del día"} a ${waFmt(num)}</a>`;
+  const waBtn=sec==="cob"&&D.cobVia==="mail"?"":`<a class="btn big full" style="margin-top:12px;text-decoration:none;background:#1f8a4c" data-sendrep="${sec}" data-per="${per}" href="${waLink(num,txt)}" target="_blank" rel="noopener">📲 Enviar ${sec==="ped"?"reporte de pedidos":"relación de cobranzas"}${per==="sem"?" semanal":" del día"} a ${sec==="ped"?"Pedidos":"Facturación"}</a>`;
   return `<div class="seg2 big2"><button data-rsec="ped" class="${sec==="ped"?"on":""}"><b>📦 Relación de Pedidos</b><span>${st(sP)}</span></button><button data-rsec="cob" class="${sec==="cob"?"on":""}"><b>💵 Relación de Cobranzas</b><span>${st(sC)}</span></button></div>
   <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">${sec==="ped"?"Relación de Pedidos":"Relación de Cobranzas"}</h3>
    <div class="seg" style="margin:0;width:150px"><button data-rep="dia" class="${per==="dia"?"on":""}">Hoy</button><button data-rep="sem" class="${per==="sem"?"on":""}">Semana</button></div></div>
-  ${kp}<div class="muted" style="margin:0 2px 8px">Se envía a <b>${sec==="ped"?"Pedidos / Facturación":"Cobranza"}</b> · ${sec==="cob"&&D.cobVia==="mail"?esc(D.cobMail):waFmt(num)}${sec==="cob"&&D.cobVia==="both"&&D.cobMail?" y "+esc(D.cobMail):""}</div>
+  ${kp}<div class="muted" style="margin:0 2px 8px">Se envía a <b>${sec==="ped"?"Pedidos":"Facturación"}</b></div>
   <pre class="rep">${esc(txt)}</pre>
   ${waBtn}${mailBtn}<button class="btn ghost full" data-copyrep="${sec}">Copiar texto</button></div>
   ${sec==="ped"?`<button class="btn sec full" data-tab="venta">＋ Levantar pedido</button>`:`<button class="btn sec full" data-pay6="1">＋ Registrar cobro</button>`}`}
@@ -1777,7 +1777,7 @@ function cxcText(full){const X=cxcSum();const rp=retPend();const pct=X.t?Math.ro
 function cxcModal(){const D=dest();const txt=cxcText(false);
   openModal(`<div class="grab"></div><h3>Reporte de Cuentas por Cobrar</h3><div class="muted">Corte ${fd(TODAY)} · se envía a Cobranza ${waFmt(D.cobWa)}</div>
   <pre class="rep" style="margin-top:12px;max-height:46vh">${esc(cxcText(true))}</pre>
-  <a class="btn big full" style="margin-top:12px;text-decoration:none;background:#1f8a4c" href="${waLink(D.cobWa,txt)}" target="_blank" rel="noopener">📲 Enviar a ${waFmt(D.cobWa)}</a>
+  <a class="btn big full" style="margin-top:12px;text-decoration:none;background:#1f8a4c" href="${waLink(D.cobWa,txt)}" target="_blank" rel="noopener">📲 Enviar a Facturación</a>
   ${D.cobMail?`<a class="btn big full" style="margin-top:8px;text-decoration:none;background:var(--blu)" href="${mailLink(D.cobMail,`Cuentas por Cobrar · ${S.vend} · ${fd(TODAY)}`,cxcText(true))}">✉️ Enviar por correo a ${esc(D.cobMail)}</a>`:""}
   <button class="btn sec full" style="margin-top:8px" data-act="copycxc">Copiar texto completo</button><button class="btn ghost full" data-act="mclose">Cerrar</button>`)}
 function cobranza4(){const X=cxcSum();const pct=X.t?Math.round(X.venc/X.t*100):0;
