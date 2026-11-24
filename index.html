@@ -773,13 +773,13 @@ function payModal(cod,n){const c=cli(cod);const f=invoices(c).find(x=>x.n===n);i
   openModal(`<h3>Registrar cobro</h3><div class="muted">${esc(c.nombre)} · Fact. ${n} · saldo <b>${usd(f.saldo)}</b> · ${f.dv>0?f.dv+" días vencida":"al día"}</div>
   ${c.esp?`<div class="alert blu" style="margin-top:10px">ℹ <div>Contribuyente especial. Retención IVA ${S.retPct}% estimada: <b>${usd(retDef)}</b>. Registre el Nº de comprobante.</div></div>`:""}
   <label class="f">Método</label><select id="pm">${MET.map(m=>`<option>${m}</option>`).join("")}</select>
-  <div style="display:flex;gap:10px"><div style="flex:1"><label class="f">Monto recibido ($)</label><input id="pa" type="number" step="0.01" value="${(f.saldo-retDef).toFixed(2)}"></div><div style="flex:1"><label class="f">Referencia</label><input id="pr" placeholder="Nº operación"></div></div>
-  ${c.esp?`<div style="display:flex;gap:10px"><div style="flex:1"><label class="f">Retención IVA ($)</label><input id="pt" type="number" step="0.01" value="${retDef.toFixed(2)}"></div><div style="flex:1"><label class="f">Nº comprobante</label><input id="pc" placeholder="2026110001234"></div></div>`:""}
+  <div style="display:flex;gap:10px"><div style="flex:1"><label class="f">Monto recibido ($)</label><input id="pa" type="text" inputmode="decimal" autocomplete="off" value="${(f.saldo-retDef).toFixed(2)}"></div><div style="flex:1"><label class="f">Referencia</label><input id="pr" placeholder="Nº operación"></div></div>
+  ${c.esp?`<div style="display:flex;gap:10px"><div style="flex:1"><label class="f">Retención IVA ($)</label><input id="pt" type="text" inputmode="decimal" autocomplete="off" value="${retDef.toFixed(2)}"></div><div style="flex:1"><label class="f">Nº comprobante</label><input id="pc" placeholder="2026110001234"></div></div>`:""}
   <div class="muted" id="peq" style="margin-top:8px"></div><div id="perr" style="color:var(--red);font-size:13px;margin-top:6px"></div>
   <div style="display:flex;gap:8px;margin-top:14px"><button class="btn sec" data-act="mclose">Cancelar</button><button class="btn" style="flex:1" data-act="paysave" data-k="${cod}|${n}">Guardar cobro</button></div>`,
-  ()=>{const upd=()=>{$("#peq").textContent="Equivale a "+bs((parseFloat($("#pa").value)||0)*S.tasa)+" a tasa "+S.tasa};$("#pa").oninput=upd;upd()})}
+  ()=>{const upd=()=>{$("#peq").textContent="Equivale a "+bs((pNum($("#pa").value)||0)*S.tasa)+" a tasa "+S.tasa};$("#pa").oninput=upd;upd()})}
 function savePay(k){const[cod,n]=k.split("|");const c=cli(cod);const f=invoices(c).find(x=>x.n===n);
-  const m=parseFloat($("#pa").value)||0,r=c.esp?(parseFloat($("#pt").value)||0):0,comp=c.esp?$("#pc").value.trim():"";
+  const m=pNum($("#pa").value)||0,r=c.esp?(pNum($("#pt").value)||0):0,comp=c.esp?$("#pc").value.trim():"";
   if(m<=0&&r<=0)return $("#perr").textContent="Indique un monto.";
   if(m+r>f.saldo+0.01)return $("#perr").textContent="El monto más la retención supera el saldo.";
   if(c.esp&&r>0&&!comp)return $("#perr").textContent="Falta el Nº de comprobante de retención.";
@@ -1082,13 +1082,13 @@ function payModal(cod,n){const c=cli(cod);const f=invoices(c).find(x=>x.n===n);i
   <div class="chips wrap">${MET.map((m,i)=>`<button data-met="${m}" class="${i===1?"on":""}">${["🏦","📱","💵","🇺🇸","💴"][i]} ${m}</button>`).join("")}</div>
   <div class="sec-t">Monto recibido ($)</div>
   <div class="chips"><button data-amt="${neto.toFixed(2)}" class="on">Todo · ${usd(neto)}</button><button data-amt="${(neto/2).toFixed(2)}">Mitad</button><button data-amt="">Otro</button></div>
-  <input id="pa" type="number" step="0.01" inputmode="decimal" value="${neto.toFixed(2)}" style="font-size:20px;margin-top:8px">
+  <input id="pa" type="text" inputmode="decimal" autocomplete="off" value="${neto.toFixed(2)}" style="font-size:20px;margin-top:8px">
   <label class="f">Nº de referencia</label><input id="pr" placeholder="Últimos dígitos de la operación" inputmode="numeric">
-  ${c.esp?`<div class="alert blu" style="margin-top:12px">🧾 <div><b>Contribuyente especial.</b> Pide el comprobante de retención.</div></div><div style="display:flex;gap:10px"><div style="flex:1"><label class="f" style="margin-top:0">Retención ($)</label><input id="pt" type="number" step="0.01" value="${ret.toFixed(2)}"></div><div style="flex:1.4"><label class="f" style="margin-top:0">Nº comprobante</label><input id="pc" placeholder="2026110001234" inputmode="numeric"></div></div>`:""}
+  ${c.esp?`<div class="alert blu" style="margin-top:12px">🧾 <div><b>Contribuyente especial.</b> Pide el comprobante de retención.</div></div><div style="display:flex;gap:10px"><div style="flex:1"><label class="f" style="margin-top:0">Retención ($)</label><input id="pt" type="text" inputmode="decimal" autocomplete="off" value="${ret.toFixed(2)}"></div><div style="flex:1.4"><label class="f" style="margin-top:0">Nº comprobante</label><input id="pc" placeholder="2026110001234" inputmode="numeric"></div></div>`:""}
   <div class="muted" id="peq" style="margin-top:8px"></div><div id="perr" style="color:var(--red);font-size:13px;margin-top:6px"></div>
   <button class="btn big full" style="margin-top:14px" data-act="paysave" data-k="${cod}|${n}">Registrar cobro ✓</button>
   <button class="btn ghost full" data-act="mclose">Cancelar</button>`,
-  ()=>{const upd=()=>{$("#peq").textContent="Equivale a "+bs((parseFloat($("#pa").value)||0)*S.tasa)};$("#pa").oninput=upd;upd()})}
+  ()=>{const upd=()=>{$("#peq").textContent="Equivale a "+bs((pNum($("#pa").value)||0)*S.tasa)};$("#pa").oninput=upd;upd()})}
 
 /* ---------- eventos v3 ---------- */
 function afterRender(){const cv=$("#sig");if(!cv||cv._ok)return;cv._ok=true;const r=cv.getBoundingClientRect();cv.width=r.width*2;cv.height=r.height*2;const x=cv.getContext("2d");x.scale(2,2);x.lineWidth=2.2;x.lineCap="round";x.strokeStyle="#1d1b1a";
@@ -1240,7 +1240,7 @@ function cobranza4b(){const mode=UI.cm||"fac";const rows=cobRows();const rp=retP
    ${rp.map(p=>{const c=cli(p.cod);return `<div class="ccard" data-comp="${p.ts}"><span class="pn2 ${p.age>15?"c-red":p.age>5?"c-amb":"c-blu"}">🧾</span><div class="main"><div class="nm">${esc(c?c.nombre:p.cod)}</div><div class="meta"><span class="mono" style="font-size:11px">Fact. ${p.fac}</span><span class="chip ${p.age>15?"c-red":p.age>5?"c-amb":""}">${p.age?`hace ${p.age} días`:"hoy"}</span></div></div><div class="amt"><div class="mono">${usd(p.ret)}</div><div class="muted" style="color:var(--blu)">Registrar ›</div></div></div>`}).join("")||`<div class="empty">No hay retenciones pendientes. 👌</div>`}`}`}
 function cobText(){const st=dayStats();const rp=retPend();return `MEISTER · Reporte de cobranza ${fdmy(today)}\nVendedor: ${S.vend}\n\n`+(st.ps.map(p=>`${cli(p.cod).nombre} · Fact ${p.fac} · ${p.met}${p.ref?" ref "+p.ref:""} · ${usd(p.monto)}${p.ret?` · ret ${usd(p.ret)} ${p.comp?"comp "+p.comp:"(comprobante pendiente)"}`:""}`).join("\n")||"Sin cobros")+`\n\nTotal cobrado: ${usd(st.cob)}\nRetenciones: ${usd(st.ret)}\nRetenciones pendientes de comprobante: ${rp.length} · ${usd(rp.reduce((a,p)=>a+p.ret,0))}`}
 function savePay(k){const[cod,n]=k.split("|");const c=cli(cod);const f=invoices(c).find(x=>x.n===n);
-  const m=parseFloat($("#pa").value)||0,r=c.esp?(parseFloat($("#pt").value)||0):0,comp=c.esp?$("#pc").value.trim():"";
+  const m=pNum($("#pa").value)||0,r=c.esp?(pNum($("#pt").value)||0):0,comp=c.esp?$("#pc").value.trim():"";
   if(m<=0&&r<=0)return $("#perr").textContent="Indica un monto.";
   if(m+r>f.saldo+0.01)return $("#perr").textContent="El monto más la retención supera el saldo.";
   S.payments.push({date:TODAY,ts:Date.now(),cod,fac:n,met:$("#pm").value,ref:$("#pr").value.trim(),monto:m,ret:r,comp});syncPaid();save();UI.modal=null;render();
@@ -1384,19 +1384,19 @@ function payModal(cod,n){const c=cli(cod);const f=invoices(c).find(x=>x.n===n);i
   <div class="chips wrap">${MET.map((m,i)=>`<button data-met5="${m}" class="${i===1?"on":""}">${["🏦","📱","💵","🇺🇸","💴"][i]} ${m}</button>`).join("")}</div>
   <div id="pbox"></div>
   <label class="f">Nº de referencia</label><input id="pr" placeholder="Últimos dígitos de la operación" inputmode="numeric">
-  ${c.esp?`<div class="alert blu" style="margin-top:12px">🧾 <div><b>Contribuyente especial.</b> Pide el comprobante. Si no lo entrega hoy, queda como retención pendiente.</div></div><div style="display:flex;gap:10px"><div style="flex:1"><label class="f" style="margin-top:0">Retención ($)</label><input id="pt" type="number" step="0.01" value="${ret.toFixed(2)}"></div><div style="flex:1.4"><label class="f" style="margin-top:0">Nº comprobante</label><input id="pc" placeholder="Opcional" inputmode="numeric"></div></div>`:""}
+  ${c.esp?`<div class="alert blu" style="margin-top:12px">🧾 <div><b>Contribuyente especial.</b> Pide el comprobante. Si no lo entrega hoy, queda como retención pendiente.</div></div><div style="display:flex;gap:10px"><div style="flex:1"><label class="f" style="margin-top:0">Retención ($)</label><input id="pt" type="text" inputmode="decimal" autocomplete="off" value="${ret.toFixed(2)}"></div><div style="flex:1.4"><label class="f" style="margin-top:0">Nº comprobante</label><input id="pc" placeholder="Opcional" inputmode="numeric"></div></div>`:""}
   <div class="alert amb" style="margin-top:12px">🔎 <div>El cobro queda <b>por verificar</b> hasta que administración lo confirme con el banco.</div></div>
   <div id="perr" style="color:var(--red);font-size:13px;margin-top:6px"></div>
   <button class="btn big full" style="margin-top:10px" data-act="paysave5" data-k="${cod}|${n}" data-neto="${neto}">Registrar cobro ✓</button>
   <button class="btn ghost full" data-act="mclose">Cancelar</button>`,()=>payBox(neto))}
 function payBox(neto){const m=$("#pm").value;const T=tasaHoy();const box=$("#pbox");if(!box)return;
-  if(BSM.includes(m)){box.innerHTML=`<div class="sec-t">Monto recibido (Bs)</div><input id="pbs" type="number" step="0.01" inputmode="decimal" value="${(neto*T.v).toFixed(2)}" style="font-size:20px"><div class="muted" id="peq" style="margin-top:6px"></div>`;
-    const u=()=>{const v=parseFloat($("#pbs").value)||0;$("#peq").innerHTML=`Equivale a <b>${usd(v/T.v)}</b> a tasa BCV ${T.v.toLocaleString("es-VE")}`};$("#pbs").oninput=u;u()}
-  else{const ig=DIV.includes(m)&&cfg().igtf;box.innerHTML=`<div class="sec-t">Monto aplicado a la factura ($)</div><input id="pa" type="number" step="0.01" inputmode="decimal" value="${neto.toFixed(2)}" style="font-size:20px">${ig?`<div class="alert amb" style="margin-top:8px" id="pig"></div>`:""}`;
-    if(ig){const u=()=>{const v=parseFloat($("#pa").value)||0;$("#pig").innerHTML=`💲 <div>Pago en divisas: <b>IGTF 3% = ${usd(v*IGTF)}</b>. El cliente entrega <b>${usd(v*(1+IGTF))}</b>.</div>`};$("#pa").oninput=u;u()}}}
+  if(BSM.includes(m)){box.innerHTML=`<div class="sec-t">Monto recibido (Bs)</div><input id="pbs" type="text" inputmode="decimal" autocomplete="off" value="${(neto*T.v).toFixed(2)}" style="font-size:20px"><div class="muted" id="peq" style="margin-top:6px"></div>`;
+    const u=()=>{const v=pNum($("#pbs").value)||0;$("#peq").innerHTML=`Equivale a <b>${usd(v/T.v)}</b> a tasa BCV ${T.v.toLocaleString("es-VE")}`};$("#pbs").oninput=u;u()}
+  else{const ig=DIV.includes(m)&&cfg().igtf;box.innerHTML=`<div class="sec-t">Monto aplicado a la factura ($)</div><input id="pa" type="text" inputmode="decimal" autocomplete="off" value="${neto.toFixed(2)}" style="font-size:20px">${ig?`<div class="alert amb" style="margin-top:8px" id="pig"></div>`:""}`;
+    if(ig){const u=()=>{const v=pNum($("#pa").value)||0;$("#pig").innerHTML=`💲 <div>Pago en divisas: <b>IGTF 3% = ${usd(v*IGTF)}</b>. El cliente entrega <b>${usd(v*(1+IGTF))}</b>.</div>`};$("#pa").oninput=u;u()}}}
 function savePay5(k){const[cod,n]=k.split("|");const c=cli(cod);const f=invoices(c).find(x=>x.n===n);const T=tasaHoy();const m=$("#pm").value;
-  let monto,montoBs=null;if(BSM.includes(m)){montoBs=parseFloat($("#pbs").value)||0;monto=Math.round(montoBs/T.v*100)/100}else monto=parseFloat($("#pa").value)||0;
-  const r=c.esp?(parseFloat($("#pt").value)||0):0,comp=c.esp?$("#pc").value.trim():"";const ref=$("#pr").value.trim();
+  let monto,montoBs=null;if(BSM.includes(m)){montoBs=pNum($("#pbs").value)||0;monto=Math.round(montoBs/T.v*100)/100}else monto=pNum($("#pa").value)||0;
+  const r=c.esp?(pNum($("#pt").value)||0):0,comp=c.esp?$("#pc").value.trim():"";const ref=$("#pr").value.trim();
   if(monto<=0&&r<=0)return $("#perr").textContent="Indica un monto.";
   if(monto+r>f.saldo+0.01)return $("#perr").textContent="El monto más la retención supera el saldo.";
   if(m!=="Efectivo USD"&&m!=="Efectivo Bs"&&!ref)return $("#perr").textContent="Falta el número de referencia.";
@@ -1508,6 +1508,13 @@ function relText(per){const L=relList(per);const T=relTot(L);const fd=d=>fdmy(ne
   return head+"\n"+L.map((r,i)=>{const c=cli(r.cod);return `${i+1}) *${c?c.nombre:r.cod}*\n   Factura: ${r.fac||"—"} · Fecha: ${fd(r.fpago)}\n   Moneda: ${r.mon==="bs"?"Bolívares":"Dólares"} · ${r.tp}${r.tp!=="Efectivo"?` · ${r.banco}`:""}${r.ref?` · Ref ${r.ref}`:""}\n   Monto: ${r.mon==="bs"?`${fmtBs(r.orig)} (≈ ${usd(r.monto)})`:usd(r.orig)}${r.ret?` · Ret. IVA ${usd(r.ret)}${r.comp?"":" (comprobante pendiente)"}`:""}\n   Entrega cobranza: ${r.entCob?"✅":"❌"} · Entrega facturación: ${r.entFac?"✅":"❌"}`}).join("\n\n")+
   `\n\n*TOTALES*\nBolívares: ${fmtBs(T.bs)} (≈ ${usd(T.bsUsd)})\nDivisas: ${usd(T.usd)} (Zelle ${usd(T.zelle)} · Efectivo ${usd(T.cash)})\nTotal equivalente: ${usd(T.eq)}\nCobranza entregada: ${T.cob}/${T.n} · Facturas entregadas: ${T.fac}/${T.n}`}
 
+/* números escritos a mano: 169870.68 · 169870,68 · 169.870,68 · 169,870.68 · Bs 1.234 */
+function pNum(v){let s=String(v==null?"":v).replace(/[^\d.,-]/g,"");if(!s)return 0;
+  const lc=s.lastIndexOf(","),ld=s.lastIndexOf(".");
+  if(lc>-1&&ld>-1){const dec=lc>ld?",":".";const th=dec===","?".":",";s=s.split(th).join("").replace(dec,".")}
+  else if(lc>-1){const parts=s.split(",");s=parts.length===2?parts.join("."):parts.join("")}
+  else if(ld>-1){const parts=s.split(".");if(parts.length>2||(parts.length===2&&parts[1].length===3))s=parts.join("")}
+  const n=parseFloat(s);return isFinite(n)?n:0}
 /* ---------- formulario de cobro ---------- */
 function payModal6(cod,n){const T=tasaHoy();const pre=cod?cli(cod):null;
   const o1=c=>`<option value="${c.cod}" ${c.cod===cod?"selected":""}>${esc(c.nombre)} · ${c.cod}</option>`;const conDeuda=clients().filter(c=>invoices(c).length).sort((a,b)=>a.nombre.localeCompare(b.nombre));const sd=new Set(conDeuda.map(c=>c.cod));
@@ -1522,7 +1529,7 @@ function payModal6(cod,n){const T=tasaHoy();const pre=cod?cli(cod):null;
   <div class="sec-t">Tipo de pago</div><input type="hidden" id="rc_tp" value="Transferencia"><div class="chips wrap" id="rc_tps"></div>
   <div id="rc_bk"></div>
   <label class="f" id="rc_refl">Referencia</label><input id="rc_ref" placeholder="Nº de operación" inputmode="numeric">
-  <label class="f" id="rc_ml">Monto cobrado (Bs)</label><input id="rc_monto" type="number" step="0.01" inputmode="decimal" style="font-size:20px"><div class="muted" id="rc_eq" style="margin-top:6px"></div>
+  <label class="f" id="rc_ml">Monto cobrado (Bs)</label><input id="rc_monto" type="text" inputmode="decimal" autocomplete="off" style="font-size:20px"><div class="muted" id="rc_eq" style="margin-top:6px"></div>
   <div id="rc_ret"></div>
   <div class="sec-t">Entregas</div>
   <label class="chk"><input type="checkbox" id="rc_ec">Entrega cobranza <span class="muted" style="font-size:12px">(dinero o soporte entregado a administración)</span></label>
@@ -1538,7 +1545,7 @@ function rcFac(){const cod=$("#rc_cli").value;const c=cod&&cli(cod);if(!c)return
   const ret=f&&c.esp?Math.round(f.saldo*IVA/(1+IVA)*S.retPct)/100:0;const neto=f?Math.round((f.saldo-ret)*100)/100:0;
   $("#rc_info").innerHTML=f?`Saldo de la factura <b>${usd(f.saldo)}</b>${ret?` · retención ${usd(ret)} · neto ${usd(neto)}`:""}${f.dv>0?` · <span style="color:var(--red)">${f.dv} días vencida</span>`:""}`:($("#rc_fac").value?(/^PED-/.test($("#rc_fac").value)?`💵 Abono al pedido ${esc($("#rc_fac").value)}: se aplicará a su factura al despachar.`:`Factura no encontrada en la cartera: se registrará igual en la relación.`):"");
   if(f&&!$("#rc_monto").dataset.touched)$("#rc_monto").value=(mon==="bs"?neto*T.v:neto).toFixed(2);
-  $("#rc_ret").innerHTML=c.esp?`<div class="alert blu" style="margin-top:10px">🧾 <div><b>Contribuyente especial.</b> Si no entrega el comprobante hoy, queda como retención pendiente.</div></div><div style="display:flex;gap:10px"><div style="flex:1"><label class="f" style="margin-top:0">Retención IVA ($)</label><input id="pt" type="number" step="0.01" value="${ret.toFixed(2)}"></div><div style="flex:1.4"><label class="f" style="margin-top:0">Nº comprobante</label><input id="pc" placeholder="Opcional" inputmode="numeric"></div></div>`:"";
+  $("#rc_ret").innerHTML=c.esp?`<div class="alert blu" style="margin-top:10px">🧾 <div><b>Contribuyente especial.</b> Si no entrega el comprobante hoy, queda como retención pendiente.</div></div><div style="display:flex;gap:10px"><div style="flex:1"><label class="f" style="margin-top:0">Retención IVA ($)</label><input id="pt" type="text" inputmode="decimal" autocomplete="off" value="${ret.toFixed(2)}"></div><div style="flex:1.4"><label class="f" style="margin-top:0">Nº comprobante</label><input id="pc" placeholder="Opcional" inputmode="numeric"></div></div>`:"";
   rcEq()}
 function rcMon(mon){$("#rc_mon").value=mon;document.querySelectorAll("[data-mon]").forEach(b=>b.classList.toggle("on",b.dataset.mon===mon));
   $("#rc_tps").innerHTML=TIPOS[mon].map((t,i)=>`<button data-tp="${t}" class="${i===0?"on":""}">${{"Transferencia":"🏦","Pago Móvil":"📱","Zelle":"🇺🇸","Efectivo":"💵"}[t]} ${t}</button>`).join("");$("#rc_ml").textContent=`Monto cobrado (${mon==="bs"?"Bs":"$"})`;
@@ -1546,14 +1553,14 @@ function rcMon(mon){$("#rc_mon").value=mon;document.querySelectorAll("[data-mon]
 function rcTp(tp){$("#rc_tp").value=tp;document.querySelectorAll("[data-tp]").forEach(b=>b.classList.toggle("on",b.dataset.tp===tp));
   const L=tp==="Zelle"?BANCOS_US:BANCOS_VE;$("#rc_bk").innerHTML=tp==="Efectivo"?"":`<label class="f">Banco ${tp==="Zelle"?"desde donde envió el Zelle":"desde donde se hizo el pago"}</label><select id="rc_bank"><option value="">Selecciona el banco…</option>${L.map(b=>`<option>${b}</option>`).join("")}</select>`;
   $("#rc_ref").style.display=$("#rc_refl").style.display=tp==="Efectivo"?"none":"";rcEq()}
-function rcEq(){const v=parseFloat($("#rc_monto").value)||0;const T=tasaHoy();const mon=$("#rc_mon").value;const tp=$("#rc_tp").value;
+function rcEq(){const v=pNum($("#rc_monto").value)||0;const T=tasaHoy();const mon=$("#rc_mon").value;const tp=$("#rc_tp").value;
   $("#rc_eq").innerHTML=mon==="bs"?`Equivale a <b>${usd(v/T.v)}</b> a tasa ${T.v.toLocaleString("es-VE",{minimumFractionDigits:2})}`:(cfg().igtf?`💲 IGTF 3%: <b>${usd(v*IGTF)}</b> · el cliente entrega <b>${usd(v*(1+IGTF))}</b>`:"")}
 function savePay6(){const cod=$("#rc_cli").value;const c=cod&&cli(cod);const T=tasaHoy();
-  const facN=$("#rc_fac").value.trim(),fpago=$("#rc_fec").value,mon=$("#rc_mon").value,tp=$("#rc_tp").value,bank=$("#rc_bank")?$("#rc_bank").value:"",ref=$("#rc_ref").value.trim(),orig=parseFloat($("#rc_monto").value)||0;
+  const facN=$("#rc_fac").value.trim(),fpago=$("#rc_fec").value,mon=$("#rc_mon").value,tp=$("#rc_tp").value,bank=$("#rc_bank")?$("#rc_bank").value:"",ref=$("#rc_ref").value.trim(),orig=pNum($("#rc_monto").value)||0;
   const err=m=>$("#perr").textContent=m;
   if(!c)return err("Selecciona el cliente.");if(!facN)return err("Escribe el número de factura.");if(!fpago)return err("Indica la fecha.");
   if(tp!=="Efectivo"&&!bank)return err("Selecciona el banco.");if(tp!=="Efectivo"&&!ref)return err("Escribe la referencia.");if(orig<=0)return err("Indica el monto cobrado.");
-  const monto=Math.round((mon==="bs"?orig/T.v:orig)*100)/100;const r=c.esp&&$("#pt")?(parseFloat($("#pt").value)||0):0,comp=c.esp&&$("#pc")?$("#pc").value.trim():"";
+  const monto=Math.round((mon==="bs"?orig/T.v:orig)*100)/100;const r=c.esp&&$("#pt")?(pNum($("#pt").value)||0):0,comp=c.esp&&$("#pc")?$("#pc").value.trim():"";
   const f=invoices(c).find(x=>x.n===facN);if(f&&monto+r>f.saldo+0.01)return err(`El monto (${usd(monto)}) más la retención supera el saldo de la factura (${usd(f.saldo)}).`);
   const igtf=mon==="usd"&&cfg().igtf?Math.round(monto*IGTF*100)/100:0;
   S.payments.push({date:TODAY,ts:Date.now(),cod,fac:facN,facN,fpago,femi:($("#rc_femi")&&$("#rc_femi").value)||"",moneda:mon,tipo:tp,banco:tp==="Efectivo"?"—":bank,met:metOf(mon,tp),ref,montoOrig:orig,monto,montoBs:mon==="bs"?orig:null,tasa:T.v,igtf,ret:r,comp,ver:"pend",entCob:$("#rc_ec").checked,entFac:$("#rc_ef").checked,enCartera:!!f});
