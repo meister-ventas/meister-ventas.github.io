@@ -1505,8 +1505,8 @@ function relTot(L){const bsT=L.filter(r=>r.mon==="bs").reduce((a,r)=>a+r.orig,0)
 function relText(per){const L=relList(per);const T=relTot(L);const fd=d=>fdmy(new Date(d+"T00:00"));
   const head=`*MEISTER · RELACIÓN DE COBRANZAS*\nVendedor: ${S.vend}\n${per==="sem"?`Semana: ${fd(iso(addD(today,-6)))} al ${fd(TODAY)}`:`Fecha: ${fd(TODAY)}`}\nTasa BCV: ${S.tasa.toLocaleString("es-VE",{minimumFractionDigits:2})}\n`;
   if(!L.length)return head+"\nSin cobros registrados.";
-  return head+"\n"+L.map((r,i)=>{const c=cli(r.cod);return `${i+1}) *${c?c.nombre:r.cod}*\n   Factura: ${r.fac||"—"} · Fecha: ${fd(r.fpago)}\n   Moneda: ${r.mon==="bs"?"Bolívares":"Dólares"} · ${r.tp}${r.tp!=="Efectivo"?` · ${r.banco}`:""}${r.ref?` · Ref ${r.ref}`:""}\n   Monto: ${r.mon==="bs"?`${fmtBs(r.orig)} (≈ ${usd(r.monto)})`:usd(r.orig)}${r.ret?` · Ret. IVA ${usd(r.ret)}${r.comp?"":" (comprobante pendiente)"}`:""}\n   Entrega cobranza: ${r.entCob?"✅":"❌"} · Entrega facturación: ${r.entFac?"✅":"❌"}`}).join("\n\n")+
-  `\n\n*TOTALES*\nBolívares: ${fmtBs(T.bs)} (≈ ${usd(T.bsUsd)})\nDivisas: ${usd(T.usd)} (Zelle ${usd(T.zelle)} · Efectivo ${usd(T.cash)})\nTotal equivalente: ${usd(T.eq)}\nCobranza entregada: ${T.cob}/${T.n} · Facturas entregadas: ${T.fac}/${T.n}`}
+  return head+"\n"+L.map((r,i)=>{const c=cli(r.cod);return `${i+1}) *${c?c.nombre:r.cod}*\n   Factura: ${r.fac||"—"} · Fecha: ${fd(r.fpago)}\n   Moneda: ${r.mon==="bs"?"Bolívares":"Dólares"} · ${r.tp}${r.tp!=="Efectivo"?` · ${r.banco}`:""}${r.ref?` · Ref ${r.ref}`:""}\n   Monto: ${r.mon==="bs"?`${fmtBs(r.orig)} (≈ ${usd(r.monto)})`:usd(r.orig)}${r.ret?` · Ret. IVA ${usd(r.ret)}${r.comp?"":" (comprobante pendiente)"}`:""}\n   ${r.mod?`Modalidad: ${r.mod==="abono"?"Abono":"Pago completo"}${r.nPagos>1?` · pago ${r.nPago} de ${r.nPagos}`:""}${r.idx?" · Indexado":""}\n   `:""}Entrega facturación: ${r.entFac?"✅":"❌"}`}).join("\n\n")+
+  `\n\n*TOTALES*\nBolívares: ${fmtBs(T.bs)} (≈ ${usd(T.bsUsd)})\nDivisas: ${usd(T.usd)} (Zelle ${usd(T.zelle)} · Efectivo ${usd(T.cash)})\nTotal equivalente: ${usd(T.eq)}\nFacturas entregadas: ${T.fac}/${T.n}`}
 
 /* números escritos a mano: 169870.68 · 169870,68 · 169.870,68 · 169,870.68 · Bs 1.234 */
 function pNum(v){let s=String(v==null?"":v).replace(/[^\d.,-]/g,"");if(!s)return 0;
@@ -1524,19 +1524,25 @@ function payModal6(cod,n){const T=tasaHoy();const pre=cod?cli(cod):null;
   <div style="display:flex;gap:10px"><div style="flex:1.3"><label class="f">Nº de factura</label><input id="rc_fac" list="rc_facs" value="${esc(n||"")}" placeholder="00001234" inputmode="numeric"><datalist id="rc_facs"></datalist></div>
    <div style="flex:1"><label class="f">Fecha</label><input id="rc_fec" type="date" value="${TODAY}" max="${TODAY}"></div></div>
   <div id="rc_info" class="muted" style="margin-top:6px"></div>
-  <div class="sec-t">Tipo de moneda</div><input type="hidden" id="rc_mon" value="bs">
+  <div class="sec-t">Modalidad</div><input type="hidden" id="rc_mod" value="completo">
+  <div class="seg2" style="margin-bottom:6px"><button data-rcmod="completo" class="on"><b>✅ Pago completo</b><span>Cancela la factura</span></button><button data-rcmod="abono"><b>➗ Abono</b><span>Pago parcial · queda saldo</span></button></div>
+  <label class="chk"><input type="checkbox" id="rc_idx">Indexado <span class="muted" style="font-size:12px">(se paga en Bs a la tasa BCV del día del pago)</span></label>
+  <div id="rc_list"></div>
+  <div class="sec-t" id="rc_pt">Pago 1</div>
+  <div class="sec-t" style="margin-top:4px">Tipo de moneda</div><input type="hidden" id="rc_mon" value="bs">
   <div class="seg2" style="margin-bottom:6px"><button data-mon="bs" class="on"><b>🇻🇪 Bolívares</b><span>Transferencia · Pago Móvil</span></button><button data-mon="usd"><b>💵 Dólares</b><span>Zelle · Efectivo</span></button></div>
   <div class="sec-t">Tipo de pago</div><input type="hidden" id="rc_tp" value="Transferencia"><div class="chips wrap" id="rc_tps"></div>
   <div id="rc_bk"></div>
   <label class="f" id="rc_refl">Referencia</label><input id="rc_ref" placeholder="Nº de operación" inputmode="numeric">
   <label class="f" id="rc_ml">Monto cobrado (Bs)</label><input id="rc_monto" type="text" inputmode="decimal" autocomplete="off" style="font-size:20px"><div class="muted" id="rc_eq" style="margin-top:6px"></div>
+  <button class="btn sec full" style="margin-top:10px" data-rcadd="1" id="rc_addb">＋ Agregar otro pago <span class="muted">(hasta 4)</span></button>
+  <div id="rc_tot" class="muted" style="margin-top:6px"></div>
   <div id="rc_ret"></div>
   <div class="sec-t">Entregas</div>
-  <label class="chk"><input type="checkbox" id="rc_ec">Entrega cobranza <span class="muted" style="font-size:12px">(dinero o soporte entregado a administración)</span></label>
   <label class="chk"><input type="checkbox" id="rc_ef">Entrega facturación <span class="muted" style="font-size:12px">(factura entregada al cliente / soporte firmado)</span></label>
   <div id="perr" style="color:var(--red);font-size:13px;margin-top:6px"></div>
   <button class="btn big full" style="margin-top:10px" data-act="paysave6">Registrar cobro ✓</button>
-  <button class="btn ghost full" data-act="mclose">Cancelar</button>`,()=>{rcCli(true);rcMon("bs")})}
+  <button class="btn ghost full" data-act="mclose">Cancelar</button>`,()=>{UI.rcPagos=[];rcCli(true);rcMon("bs");rcList()})}
 function rcCli(first){const cod=$("#rc_cli").value;const c=cod&&cli(cod);const dl=$("#rc_facs");const info=$("#rc_info");
   if(!c){dl.innerHTML="";info.textContent="";$("#rc_ret").innerHTML="";return}
   const inv=invoices(c).sort((a,b)=>b.dv-a.dv);dl.innerHTML=inv.map(f=>`<option value="${f.n}">${usd(f.saldo)} · vence ${f.v}</option>`).join("");
@@ -1555,16 +1561,36 @@ function rcTp(tp){$("#rc_tp").value=tp;document.querySelectorAll("[data-tp]").fo
   $("#rc_ref").style.display=$("#rc_refl").style.display=tp==="Efectivo"?"none":"";rcEq()}
 function rcEq(){const v=pNum($("#rc_monto").value)||0;const T=tasaHoy();const mon=$("#rc_mon").value;const tp=$("#rc_tp").value;
   $("#rc_eq").innerHTML=mon==="bs"?`Equivale a <b>${usd(v/T.v)}</b> a tasa ${T.v.toLocaleString("es-VE",{minimumFractionDigits:2})}`:(cfg().igtf?`💲 IGTF 3%: <b>${usd(v*IGTF)}</b> · el cliente entrega <b>${usd(v*(1+IGTF))}</b>`:"")}
+function rcRead(){const mon=$("#rc_mon").value,tp=$("#rc_tp").value,bank=$("#rc_bank")?$("#rc_bank").value:"",ref=$("#rc_ref").value.trim(),orig=pNum($("#rc_monto").value)||0,fpago=$("#rc_fec").value;const T=tasaHoy();
+  if(!fpago)return{err:"Indica la fecha del pago."};if(tp!=="Efectivo"&&!bank)return{err:"Selecciona el banco."};if(tp!=="Efectivo"&&!ref)return{err:"Escribe la referencia."};if(orig<=0)return{err:"Indica el monto cobrado."};
+  return{p:{mon,tp,bank:tp==="Efectivo"?"—":bank,ref,orig,fpago,monto:Math.round((mon==="bs"?orig/T.v:orig)*100)/100}}}
+function rcFact(){const c=cli($("#rc_cli").value);return c?invoices(c).find(x=>x.n===$("#rc_fac").value.trim()):null}
+function rcList(){const L=UI.rcPagos||[];const box=$("#rc_list");if(!box)return;
+  box.innerHTML=L.length?`<div class="sec-t">Pagos agregados</div>`+L.map((p,i)=>`<div class="card" style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin:0 0 6px"><div style="flex:1;font-size:13px"><b>Pago ${i+1}</b> · ${p.tp}${p.bank&&p.bank!=="—"?" · "+esc(p.bank):""}${p.ref?" · Ref "+esc(p.ref):""}<br>${p.mon==="bs"?fmtBs(p.orig)+" ≈ "+usd(p.monto):usd(p.orig)} · ${fdmy(new Date(p.fpago+"T00:00"))}</div><button class="btn ghost" style="padding:4px 10px" data-rcdel="${i}">✕</button></div>`).join(""):"";
+  $("#rc_pt").textContent=`Pago ${L.length+1}`;const ab=$("#rc_addb");if(ab)ab.style.display=L.length>=3?"none":"";
+  const f=rcFact();const ya=L.reduce((a,p)=>a+p.monto,0);const r=$("#pt")?pNum($("#pt").value):0;
+  $("#rc_tot").innerHTML=L.length?`Agregado: <b>${usd(ya)}</b>${f?` · saldo de la factura ${usd(f.saldo)} · falta ${usd(Math.max(0,f.saldo-r-ya))}`:""}`:""}
+function rcAdd(){const err=m=>$("#perr").textContent=m;const L=UI.rcPagos||(UI.rcPagos=[]);if(L.length>=3)return err("Máximo 4 pagos por cobro.");
+  const x=rcRead();if(x.err)return err(x.err);err("");L.push(x.p);
+  $("#rc_ref").value="";if($("#rc_bank"))$("#rc_bank").value="";const f=rcFact();const T=tasaHoy();const r=$("#pt")?pNum($("#pt").value):0;
+  const falta=f?Math.max(0,f.saldo-r-L.reduce((a,p)=>a+p.monto,0)):0;const m=$("#rc_monto");m.value="";m.placeholder=falta?`Falta ${($("#rc_mon").value==="bs"?fmtBs(falta*T.v):usd(falta))} · vacío si no hay más pagos`:"";m.dataset.touched="1";rcEq();rcList()}
 function savePay6(){const cod=$("#rc_cli").value;const c=cod&&cli(cod);const T=tasaHoy();
-  const facN=$("#rc_fac").value.trim(),fpago=$("#rc_fec").value,mon=$("#rc_mon").value,tp=$("#rc_tp").value,bank=$("#rc_bank")?$("#rc_bank").value:"",ref=$("#rc_ref").value.trim(),orig=pNum($("#rc_monto").value)||0;
-  const err=m=>$("#perr").textContent=m;
-  if(!c)return err("Selecciona el cliente.");if(!facN)return err("Escribe el número de factura.");if(!fpago)return err("Indica la fecha.");
-  if(tp!=="Efectivo"&&!bank)return err("Selecciona el banco.");if(tp!=="Efectivo"&&!ref)return err("Escribe la referencia.");if(orig<=0)return err("Indica el monto cobrado.");
-  const monto=Math.round((mon==="bs"?orig/T.v:orig)*100)/100;const r=c.esp&&$("#pt")?(pNum($("#pt").value)||0):0,comp=c.esp&&$("#pc")?$("#pc").value.trim():"";
-  const f=invoices(c).find(x=>x.n===facN);if(f&&monto+r>f.saldo+0.01)return err(`El monto (${usd(monto)}) más la retención supera el saldo de la factura (${usd(f.saldo)}).`);
-  const igtf=mon==="usd"&&cfg().igtf?Math.round(monto*IGTF*100)/100:0;
-  S.payments.push({date:TODAY,ts:Date.now(),cod,fac:facN,facN,fpago,femi:($("#rc_femi")&&$("#rc_femi").value)||"",moneda:mon,tipo:tp,banco:tp==="Efectivo"?"—":bank,met:metOf(mon,tp),ref,montoOrig:orig,monto,montoBs:mon==="bs"?orig:null,tasa:T.v,igtf,ret:r,comp,ver:"pend",entCob:$("#rc_ec").checked,entFac:$("#rc_ef").checked,enCartera:!!f});
-  save();UI.modal=null;render();toast("Cobro agregado a la Relación de Cobranzas")}
+  const facN=$("#rc_fac").value.trim();const err=m=>$("#perr").textContent=m;
+  if(!c)return err("Selecciona el cliente.");if(!facN)return err("Escribe el número de factura.");
+  const L=(UI.rcPagos||[]).slice();const cur=pNum($("#rc_monto").value)||0;
+  if(cur>0||!L.length){const x=rcRead();if(x.err)return err(L.length?`Pago ${L.length+1}: ${x.err} (o deja el monto vacío)`:x.err);L.push(x.p)}
+  if(L.length>4)return err("Máximo 4 pagos por cobro.");
+  const r=c.esp&&$("#pt")?(pNum($("#pt").value)||0):0,comp=c.esp&&$("#pc")?$("#pc").value.trim():"";
+  const tot=Math.round(L.reduce((a,p)=>a+p.monto,0)*100)/100;const mod=$("#rc_mod").value,idx=$("#rc_idx").checked;
+  const f=invoices(c).find(x=>x.n===facN);if(f&&tot+r>f.saldo+0.01)return err(`Los pagos (${usd(tot)}) más la retención superan el saldo de la factura (${usd(f.saldo)}).`);
+  if(f&&mod==="completo"&&tot+r<f.saldo-0.01)return err(`No cubre la factura: faltan ${usd(f.saldo-r-tot)}. Márcalo como Abono o agrega otro pago.`);
+  const grp="C"+Date.now().toString(36);const femi=($("#rc_femi")&&$("#rc_femi").value)||"";
+  L.forEach((p,i)=>{const igtf=p.mon==="usd"&&cfg().igtf?Math.round(p.monto*IGTF*100)/100:0;
+    S.payments.push({date:TODAY,ts:Date.now()+i,cod,fac:facN,facN,fpago:p.fpago,femi,moneda:p.mon,tipo:p.tp,banco:p.bank,met:metOf(p.mon,p.tp),ref:p.ref,montoOrig:p.orig,monto:p.monto,montoBs:p.mon==="bs"?p.orig:null,tasa:T.v,igtf,ret:i===0?r:0,comp:i===0?comp:"",ver:"pend",entCob:false,entFac:$("#rc_ef").checked,enCartera:!!f,grp,mod,idx,nPago:i+1,nPagos:L.length,totGrp:tot})});
+  UI.rcPagos=[];save();UI.modal=null;render();toast(L.length>1?`${L.length} pagos agregados a la Relación de Cobranzas`:"Cobro agregado a la Relación de Cobranzas")}
+document.addEventListener("click",function(e){const t=e.target.closest("[data-rcmod],[data-rcadd],[data-rcdel]");if(!t||!$("#rc_mod"))return;e.stopImmediatePropagation();e.preventDefault();
+  if(t.dataset.rcmod){$("#rc_mod").value=t.dataset.rcmod;document.querySelectorAll("[data-rcmod]").forEach(b=>b.classList.toggle("on",b===t))}
+  else if(t.dataset.rcadd)rcAdd();else{UI.rcPagos.splice(+t.dataset.rcdel,1);rcList()}},true);
 
 /* ---------- pestaña Cobrar: Relación arriba ---------- */
 function cobranza6(){const per=UI.rper||"dia";const L=relList(per);const T=relTot(L);
@@ -1573,8 +1599,8 @@ function cobranza6(){const per=UI.rper||"dia";const L=relList(per);const T=relTo
   <div class="relk"><div><span>Bolívares</span><b class="mono">${fmtBs(T.bs)}</b></div><div><span>Divisas</span><b class="mono">${usd(T.usd)}</b></div><div><span>Total equiv.</span><b class="mono">${usd(T.eq)}</b></div></div>
   ${L.length?`<div class="rlist">${L.slice().reverse().map(r=>{const c=cli(r.cod);return `<div class="rrow2"><div class="rh"><b>${esc(c?c.nombre:r.cod)}</b><span class="mono">${r.mon==="bs"?fmtBs(r.orig):usd(r.orig)}</span></div>
      <div class="rm">Fact. <span class="mono">${esc(r.fac||"—")}</span> · Emis. ${r.femi?fdmy(new Date(r.femi+"T00:00")).slice(0,5):"—"} · Canc. ${fdmy(new Date(r.fcan+"T00:00")).slice(0,5)} · ${r.mon==="bs"?"Bs":"$"} · ${r.tp}${r.tp!=="Efectivo"?` · ${esc(r.banco)}`:""}${r.ref?` · Ref ${esc(r.ref)}`:""} ${r.ver==="pend"?'<span class="chip c-amb">por verificar</span>':'<span class="chip c-grn">verificado</span>'}</div>
-     <div class="rchk"><button data-entr="${r.ts}|entCob" class="${r.entCob?"on":""}">${r.entCob?"✓":"○"} Entrega cobranza</button><button data-entr="${r.ts}|entFac" class="${r.entFac?"on":""}">${r.entFac?"✓":"○"} Entrega facturación</button></div></div>`}).join("")}</div>
-   <div class="muted" style="margin:8px 0 0">Cobranza entregada ${T.cob}/${T.n} · Facturas entregadas ${T.fac}/${T.n}</div>`:`<p class="muted" style="margin:10px 0 0">${per==="dia"?"Aún no hay cobros hoy.":"Sin cobros en los últimos 7 días."}</p>`}
+     <div class="rchk"><button data-entr="${r.ts}|entFac" class="${r.entFac?"on":""}">${r.entFac?"✓":"○"} Entrega facturación</button></div></div>`}).join("")}</div>
+   <div class="muted" style="margin:8px 0 0">Facturas entregadas ${T.fac}/${T.n}</div>`:`<p class="muted" style="margin:10px 0 0">${per==="dia"?"Aún no hay cobros hoy.":"Sin cobros en los últimos 7 días."}</p>`}
   <button class="btn big sec full" style="margin-top:12px" data-pay6="1">＋ Registrar cobro</button>
   ${L.length?`<a class="btn big full" style="margin-top:8px;text-decoration:none;background:#1f8a4c" data-act="${per==="dia"?"sendcob":"sendrel"}" href="https://wa.me/${waNum()}?text=${encodeURIComponent(relText(per))}" target="_blank" rel="noopener">📲 Enviar relación ${per==="dia"?"del día":"semanal"} a ${waFmt(waNum())}</a>
    <button class="btn ghost full" data-act="copyrel">Copiar texto</button>`:""}</div>
@@ -1615,8 +1641,8 @@ function relRow(p){const r=relRow6(p);return{...r,femi:p.femi||facEmi(p.cod,r.fa
 function relText(per){const L=relList(per);const T=relTot(L);
   const head=`*MEISTER · RELACIÓN DE COBRANZAS*\nVendedor: ${S.vend}\n${per==="sem"?`Semana: ${fd(iso(addD(today,-6)))} al ${fd(TODAY)}`:`Fecha: ${fd(TODAY)}`}\nTasa BCV: ${S.tasa.toLocaleString("es-VE",{minimumFractionDigits:2})}\n`;
   if(!L.length)return head+"\nSin cobros registrados."+retLine();
-  return head+"\n"+L.map((r,i)=>{const c=cli(r.cod);return `${i+1}) *${c?c.nombre:r.cod}*\n   ${/^PED-/.test(r.fac)?"Abono a pedido: "+r.fac:"Factura: "+(r.fac||"—")+(r.abonoDe?" (abono de "+r.abonoDe+")":"")}\n   Emisión: ${fd(r.femi)} · Cancelación: ${fd(r.fcan)}\n   Moneda: ${r.mon==="bs"?"Bolívares":"Dólares"} · ${r.tp}${r.tp!=="Efectivo"?` · ${r.banco}`:""}${r.ref?` · Ref ${r.ref}`:""}\n   Monto: ${r.mon==="bs"?`${fmtBs(r.orig)} (≈ ${usd(r.monto)})`:usd(r.orig)}${r.ret?` · Ret. IVA ${usd(r.ret)}${r.comp?"":" (comprobante pendiente)"}`:""}\n   Entrega cobranza: ${r.entCob?"✅":"❌"} · Entrega facturación: ${r.entFac?"✅":"❌"}`}).join("\n\n")+
-  `\n\n*TOTALES*\nBolívares: ${fmtBs(T.bs)} (≈ ${usd(T.bsUsd)})\nDivisas: ${usd(T.usd)} (Zelle ${usd(T.zelle)} · Efectivo ${usd(T.cash)})\nTotal equivalente: ${usd(T.eq)}\nCobranza entregada: ${T.cob}/${T.n} · Facturas entregadas: ${T.fac}/${T.n}`+retLine()}
+  return head+"\n"+L.map((r,i)=>{const c=cli(r.cod);return `${i+1}) *${c?c.nombre:r.cod}*\n   ${/^PED-/.test(r.fac)?"Abono a pedido: "+r.fac:"Factura: "+(r.fac||"—")+(r.abonoDe?" (abono de "+r.abonoDe+")":"")}\n   Emisión: ${fd(r.femi)} · Cancelación: ${fd(r.fcan)}\n   Moneda: ${r.mon==="bs"?"Bolívares":"Dólares"} · ${r.tp}${r.tp!=="Efectivo"?` · ${r.banco}`:""}${r.ref?` · Ref ${r.ref}`:""}\n   Monto: ${r.mon==="bs"?`${fmtBs(r.orig)} (≈ ${usd(r.monto)})`:usd(r.orig)}${r.ret?` · Ret. IVA ${usd(r.ret)}${r.comp?"":" (comprobante pendiente)"}`:""}\n   ${r.mod?`Modalidad: ${r.mod==="abono"?"Abono":"Pago completo"}${r.nPagos>1?` · pago ${r.nPago} de ${r.nPagos}`:""}${r.idx?" · Indexado":""}\n   `:""}Entrega facturación: ${r.entFac?"✅":"❌"}`}).join("\n\n")+
+  `\n\n*TOTALES*\nBolívares: ${fmtBs(T.bs)} (≈ ${usd(T.bsUsd)})\nDivisas: ${usd(T.usd)} (Zelle ${usd(T.zelle)} · Efectivo ${usd(T.cash)})\nTotal equivalente: ${usd(T.eq)}\nFacturas entregadas: ${T.fac}/${T.n}`+retLine()}
 function retLine(){const rp=retPend();return `\n\n*TOTAL RETENCIONES PENDIENTES*\n${rp.length} retención(es) sin comprobante · ${usd(rp.reduce((a,p)=>a+p.ret,0))}${rp.length?"\n"+rp.map(p=>{const c=cli(p.cod);return `   • ${c?c.nombre:p.cod} · Fact ${p.fac} · ${usd(p.ret)} · hace ${p.age} días`}).join("\n"):""}`}
 
 /* ---------- Relación de Pedidos ---------- */
