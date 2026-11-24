@@ -333,7 +333,7 @@ function makeHist(v){
 
 /* cartera = clientes con saldo + agregados + lista maestra completa (para todos los vendedores) */
 const _CC=new WeakMap();let _MC=null;
-function masterClients(){if(!_MC)_MC=MASTER.map(m=>({cod:m[0],nombre:m[1].toUpperCase(),dir:m[2],tel:m[3],cred:0,esp:false,facturas:[],master:true}));return _MC}
+function masterClients(){if(!_MC)_MC=MASTER.map(m=>({cod:m[0],nombre:m[1].toUpperCase(),dir:m[2],tel:m[3],cred:0,esp:espDe(m[0],false),facturas:[],master:true}));return _MC}
 function allClients(st){st=st||S;const c=_CC.get(st);const n=st.newClients.length;if(c&&c.n===n&&c.v===st.vend)return c;
   const base=SEED[st.vend].concat(st.newClients);const seen=new Set(base.map(x=>x.cod));const list=base.concat(masterClients().filter(m=>!seen.has(m.cod)));
   const r={n,v:st.vend,list,idx:new Map(list.map(x=>[x.cod,x]))};_CC.set(st,r);return r}
@@ -1847,7 +1847,7 @@ const normT=s=>(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
 function masterFind(q,lim){q=normT(q).trim();if(q.length<2)return[];const mine=new Set(clients().map(c=>c.cod));const out=[];
   for(const m of MASTER){if(mine.has(m[0]))continue;if(normT(m[1]).includes(q)||m[0].toLowerCase().includes(q)||(m[3]||"").replace(/\D/g,"").includes(q.replace(/\D/g,"")||"#")){out.push(m);if(out.length>=(lim||20))break}}return out}
 const masterOf=cod=>MASTER.find(m=>m[0]===cod);
-function addFromMaster(cod){if(cli(cod))return cli(cod);const m=masterOf(cod);if(!m)return null;const c={cod:m[0],nombre:m[1].toUpperCase(),dir:m[2],tel:m[3],cred:0,esp:false,facturas:[],master:true};S.newClients.push(c);save();return c}
+function addFromMaster(cod){if(cli(cod))return cli(cod);const m=masterOf(cod);if(!m)return null;const c={cod:m[0],nombre:m[1].toUpperCase(),dir:m[2],tel:m[3],cred:0,esp:espDe(m[0],false),facturas:[],master:true};S.newClients.push(c);save();return c}
 function masterRows(q,act){const L=masterFind(q);if(!L.length)return"";
   return `<div class="sec-t">En la lista maestra de Meister · ${MASTER.length.toLocaleString("es-VE")} clientes</div>${L.map(m=>`<div class="ccard" data-${act}="${m[0]}"><span class="av" style="background:var(--brnbg);color:var(--brn)">📇</span><div class="main"><div class="nm">${esc(m[1])}</div><div class="meta"><span class="mono" style="font-size:11px">${m[0]}</span>${m[2]?`<span>${esc(m[2].slice(0,40))}</span>`:""}</div></div><span class="chip c-blu">＋ Agregar</span></div>`).join("")}`}
 function sellList(cl,q){const mine=cl.filter(c=>!q||normT(c.nombre).includes(normT(q))||c.cod.toLowerCase().includes(q)).slice(0,q?80:40).map(c=>`<div class="ccard" data-sell="${c.cod}"><span class="av">${ini(c.nombre.replace(/[^A-ZÁÉÍÓÚÑ ]/gi,"")||"CL")}</span><div class="main"><div class="nm">${esc(c.nombre)}</div><div class="meta"><span class="mono" style="font-size:11px">${c.cod}</span><span class="chip">${c.cred?`Crédito ${c.cred}d`:"Contado"}</span>${c.master?'<span class="chip" style="background:var(--brnbg);color:var(--brn)">Lista maestra</span>':""}</div></div><span class="muted" style="font-size:20px">›</span></div>`).join("");
@@ -1918,7 +1918,7 @@ function ensureClient(cod){if(cli(cod))return cli(cod);const m=masterOf(cod);if(
 function rName(e){return String(e.n||"").toUpperCase()||((cli(e.c)||{}).nombre)||e.c}
 function nextClient(){const R=rutero();if(!R)return SEED[S.vend].concat(S.newClients).find(c=>!(visitOf(c.cod)||{}).closed);
   const L=rutaHoy();const e=L.find(x=>!(visitOf(x.c)||{}).closed);if(!e)return null;
-  return cli(e.c)||{cod:e.c,nombre:rName(e),cred:(masterOf(e.c)?0:0),esp:false,facturas:[],pseudo:true}}
+  return cli(e.c)||{cod:e.c,nombre:rName(e),cred:(masterOf(e.c)?0:0),esp:espDe(e.c,false),facturas:[],pseudo:true}}
 function visitPos(nx,cl){const R=rutero();if(!R){const L=SEED[S.vend];const i=L.findIndex(c=>c.cod===nx.cod);return i>=0?`${i+1} de ${L.length}`:"fuera de ruta"}const L=rutaHoy();return `${L.findIndex(x=>x.c===nx.cod)+1} de ${L.length} en ruta`}
 function startVisit(cod){ensureClient(cod);startVisit3(cod)}
 const hm=m=>`${Math.floor(m/60)} h ${String(m%60).padStart(2,"0")} min`;
@@ -2082,10 +2082,16 @@ document.addEventListener("click",function(e){const t=e.target.closest("[data-rc
   else{UI.rcq="";rcSetCli("");setTimeout(()=>{const q=$("#rc_q");if(q)q.focus()},0)}},true);
 document.addEventListener("input",function(e){if(e.target&&e.target.id==="rc_q"){UI.rcq=e.target.value;$("#rc_res").innerHTML=rcResHTML()}},true);
 
+/* ===== Contribuyente especial según el maestro del sistema ("Contribuyente" = especial) ===== */
+let _ESP=null;function espDe(cod,def){if(!_ESP){const E=(window.__D&&window.__D.ESP)||{};_ESP={si:new Set(E.si||[]),no:new Set(E.no||[])}}
+  const b=String(cod||"").replace(/-\d+$/,"");if(_ESP.si.has(cod)||_ESP.si.has(b))return true;if(_ESP.no.has(cod)||_ESP.no.has(b))return false;return !!def}
+try{Object.values(SEED).forEach(L=>L.forEach(c=>{c.esp=espDe(c.cod,c.esp)}))}catch(e){}
+const __rEsp=render;render=function(){try{if(S&&S.newClients)S.newClients.forEach(c=>{c.esp=espDe(c.cod,c.esp)})}catch(e){}return __rEsp.apply(this,arguments)};
+
 /* ===== Mi cartera: Todos / Propios (Activos · Inactivos) según el maestro de clientes del sistema ===== */
 function propiosDe(v){const P=(window.__D&&window.__D.PROPIOS)||{};return P[v]||[]}
 function propiosCli(act){if(S.vend==="Oficina")return clients().filter(c=>(esActivo(c.cod)?1:0)===act);return propiosDe(S.vend).filter(x=>x[2]===act).map(x=>{const c=cli(x[0]);if(c)return c;
-  const m=masterOf(x[0]);return{cod:x[0],nombre:(m?m[1]:x[1]).toUpperCase(),dir:m?m[2]:"",tel:m?m[3]:"",cred:0,esp:false,facturas:[],master:true}})}
+  const m=masterOf(x[0]);return{cod:x[0],nombre:(m?m[1]:x[1]).toUpperCase(),dir:m?m[2]:"",tel:m?m[3]:"",cred:0,esp:espDe(x[0],false),facturas:[],master:true}})}
 let _ACT=null;const esActivo=cod=>{if(!_ACT)_ACT=new Set((window.__D&&window.__D.ACTIVOS)||[]);return _ACT.has(cod)};
 const __ruta3=ruta3;ruta3=function(){const ofi=S.vend==="Oficina";const cv=ofi?"propios":(UI.cv||"propios");const ca=UI.ca||"act";
   const P=ofi?clients().map(c=>[c.cod,c.nombre,esActivo(c.cod)?1:0]):propiosDe(S.vend);const nA=P.filter(x=>x[2]===1).length,nI=P.length-nA;
