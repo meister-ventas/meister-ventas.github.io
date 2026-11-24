@@ -1513,7 +1513,7 @@ function payModal6(cod,n){const T=tasaHoy();const pre=cod?cli(cod):null;
   const o1=c=>`<option value="${c.cod}" ${c.cod===cod?"selected":""}>${esc(c.nombre)} · ${c.cod}</option>`;const conDeuda=clients().filter(c=>invoices(c).length).sort((a,b)=>a.nombre.localeCompare(b.nombre));const sd=new Set(conDeuda.map(c=>c.cod));
   const opts=`<optgroup label="Con facturas pendientes (${conDeuda.length})">${conDeuda.map(o1).join("")}</optgroup><optgroup label="Resto de clientes">${clients().filter(c=>!sd.has(c.cod)).sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(o1).join("")}</optgroup>`;
   openModal(`<div class="grab"></div><h3>Registrar cobro</h3><div class="muted">Relación de Cobranzas · tasa BCV ${T.v.toLocaleString("es-VE",{minimumFractionDigits:2})}</div>
-  <label class="f">Cliente</label><select id="rc_cli">${pre?"":`<option value="">Selecciona el cliente…</option>`}${opts}</select>
+  <label class="f">Cliente</label><input type="hidden" id="rc_cli" value="${pre?esc(pre.cod):""}"><div id="rc_pick">${rcPickHTML(pre)}</div>
   <div style="display:flex;gap:10px"><div style="flex:1.3"><label class="f">Nº de factura</label><input id="rc_fac" list="rc_facs" value="${esc(n||"")}" placeholder="00001234" inputmode="numeric"><datalist id="rc_facs"></datalist></div>
    <div style="flex:1"><label class="f">Fecha</label><input id="rc_fec" type="date" value="${TODAY}" max="${TODAY}"></div></div>
   <div id="rc_info" class="muted" style="margin-top:6px"></div>
@@ -2052,6 +2052,29 @@ document.addEventListener("click",function(e){const b=e.target.closest("[data-sx
 const __suggest1=suggest;suggest=function(cod){return puedeReponer(cod)?__suggest1(cod):{}};
 document.addEventListener("input",function(e){const t=e.target;if(!t||!(t.dataset&&(t.dataset.sxv!==undefined||t.dataset.ex!==undefined)))return;try{const v=visitOf(UI.page.cod);if(v)v.invDone=true}catch(x){}},true);
 document.addEventListener("keydown",e=>{if(!SES&&LG.step==="pin"){if(/^\d$/.test(e.key))pressKey(e.key);else if(e.key==="Backspace")pressKey("del")}});
+/* ---------- cobro: buscador de cliente (Propios / Todos) ---------- */
+function rcPool(tab){const ofi=S.vend==="Oficina";let L;
+  if(tab==="todos"||ofi&&tab!=="propios")L=clients();
+  else{const P=propiosDe(S.vend);L=P.length?P.map(x=>cli(x[0])||{cod:x[0],nombre:x[1].toUpperCase(),facturas:[],master:true}):clients().filter(c=>invoices(c).length)}
+  return L}
+function rcPickHTML(sel){if(sel)return `<div class="card" style="display:flex;align-items:center;gap:8px;padding:10px 12px;margin:0"><div style="flex:1;min-width:0"><b>${esc(sel.nombre)}</b><div class="muted" style="font-size:12px">${esc(sel.cod)}${invoices(sel).length?` · ${invoices(sel).length} factura(s) pendiente(s)`:""}</div></div><button class="btn sec" style="padding:6px 12px" data-rcchange="1">Cambiar</button></div>`;
+  const tab=UI.rctab||"propios";const ofi=S.vend==="Oficina";
+  return `${ofi?"":`<div class="seg" style="margin-bottom:8px"><button data-rctab="propios" class="${tab==="propios"?"on":""}">Propios</button><button data-rctab="todos" class="${tab==="todos"?"on":""}">Todos</button></div>`}
+  <input id="rc_q" placeholder="Buscar cliente por nombre o código" autocomplete="off" value="${esc(UI.rcq||"")}">
+  <div id="rc_res" style="max-height:260px;overflow:auto;margin-top:6px">${rcResHTML()}</div>`}
+function rcResHTML(){const tab=UI.rctab||"propios";const q=normT(UI.rcq||"");
+  let L=rcPool(S.vend==="Oficina"?"todos":tab).filter(c=>!q||normT(c.nombre).includes(q)||c.cod.toLowerCase().includes(q));
+  L.sort((a,b)=>(invoices(b).length>0)-(invoices(a).length>0)||a.nombre.localeCompare(b.nombre));
+  const n=L.length;L=L.slice(0,40);
+  if(!n)return `<div class="muted" style="padding:10px">Sin resultados${tab==="propios"&&S.vend!=="Oficina"?" en tus clientes · prueba en <b>Todos</b>":""}.</div>`;
+  return L.map(c=>{const k=invoices(c).length;return `<button class="rowbtn" data-rcsel="${esc(c.cod)}" style="display:flex;width:100%;text-align:left;gap:8px;padding:9px 6px;border:0;border-bottom:1px solid var(--line,#e5e2dc);background:none;font:inherit;color:inherit"><span style="flex:1;min-width:0"><b style="font-weight:600">${esc(c.nombre)}</b><br><span class="muted" style="font-size:12px">${esc(c.cod)}</span></span>${k?`<span class="muted" style="font-size:12px;white-space:nowrap">💳 ${k} pend.</span>`:""}</button>`}).join("")+(n>40?`<div class="muted" style="padding:8px;font-size:12px">${n-40} más · escribe para filtrar</div>`:"")}
+function rcSetCli(cod){const h=$("#rc_cli");h.value=cod||"";const c=cod&&cli(cod);$("#rc_pick").innerHTML=rcPickHTML(c||null);h.dispatchEvent(new Event("change",{bubbles:true}))}
+document.addEventListener("click",function(e){const t=e.target.closest("[data-rcsel],[data-rctab],[data-rcchange]");if(!t||!$("#rc_pick"))return;e.stopImmediatePropagation();e.preventDefault();
+  if(t.dataset.rcsel)rcSetCli(t.dataset.rcsel);
+  else if(t.dataset.rctab){UI.rctab=t.dataset.rctab;$("#rc_pick").innerHTML=rcPickHTML(null);const q=$("#rc_q");if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
+  else{UI.rcq="";rcSetCli("");setTimeout(()=>{const q=$("#rc_q");if(q)q.focus()},0)}},true);
+document.addEventListener("input",function(e){if(e.target&&e.target.id==="rc_q"){UI.rcq=e.target.value;$("#rc_res").innerHTML=rcResHTML()}},true);
+
 /* ===== Mi cartera: Todos / Propios (Activos · Inactivos) según el maestro de clientes del sistema ===== */
 function propiosDe(v){const P=(window.__D&&window.__D.PROPIOS)||{};return P[v]||[]}
 function propiosCli(act){if(S.vend==="Oficina")return clients().filter(c=>(esActivo(c.cod)?1:0)===act);return propiosDe(S.vend).filter(x=>x[2]===act).map(x=>{const c=cli(x[0]);if(c)return c;
