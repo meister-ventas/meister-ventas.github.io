@@ -1667,9 +1667,9 @@ function ordenes(){const per=UI.pper||"dia";const L=pedList(per);const T=pedTot(
   <div class="relk"><div><span>Pedidos</span><b>${T.n}</b></div><div><span>Paq · kg</span><b>${T.paq} · ${(Math.round(T.pz*10)/10).toLocaleString("es-VE")}</b></div><div><span>Monto estimado</span><b class="mono">${usd(T.tot)}</b></div></div>
   ${L.length?`<div class="rlist">${L.slice().reverse().map(o=>{const c=cli(o.cod);const s=ost(o);return `<div class="rrow2" data-ord="${o.id}" style="cursor:pointer"><div class="rh"><b>${esc(c?c.nombre:o.cod)}</b><span class="mono">${usd(o.tot)}</span></div>
     <div class="rm"><span class="mono">${o.id}</span> · ${fd(o.date).slice(0,5)} · entrega ${fd(o.entrega).slice(0,5)} · ${esc(o.pdv.nombre)} · ${o.items.length} prod.</div>
-    <div class="rm" style="margin-top:6px"><span class="chip ${s==="aprobacion"?"c-amb":s==="emitida"?"c-blu":"c-grn"}">${pedState(o)}</span> ${o.sentFac?'<span class="chip c-grn">✓ enviado a facturación</span>':'<span class="chip">sin enviar</span>'}</div></div>`}).join("")}</div>
-   <div class="muted" style="margin:8px 0 0">Enviados a facturación ${T.env}/${T.n} · Facturados ${T.fac}/${T.n}</div>
-   <a class="btn big full" style="margin-top:12px;text-decoration:none;background:#1f8a4c" data-act="sentall" data-per="${per}" href="${waLink(D.pedWa,pedText(per))}" target="_blank" rel="noopener">📲 Enviar relación de pedidos a Pedidos</a>
+    <div class="rm" style="margin-top:6px"><span class="chip ${s==="aprobacion"?"c-amb":s==="emitida"?"c-blu":"c-grn"}">${pedState(o)}</span> ${o.sentFac?'<span class="chip c-grn">✓ enviado a Pedidos</span>':'<span class="chip">sin enviar</span>'}</div></div>`}).join("")}</div>
+   <div class="muted" style="margin:8px 0 0">Enviados a Pedidos ${T.env}/${T.n} · Facturados ${T.fac}/${T.n}</div>
+   <a class="btn big full" style="margin-top:12px;text-decoration:none;background:#1f8a4c" data-act="sentall" data-per="${per}" href="${waLink(D.pedWa,pedText(per))}" target="_blank" rel="noopener">📲 Enviar relación de pedidos ${per==="sem"?"semanal":"del día"} a Pedidos</a>
    <button class="btn ghost full" data-act="copyped">Copiar texto</button>`:`<p class="muted" style="margin:10px 0 0">${per==="dia"?"Aún no hay pedidos hoy.":"Sin pedidos en los últimos 7 días."}</p>`}
   <button class="btn big sec full" style="margin-top:8px" data-tab="venta">＋ Levantar pedido</button></div>
   ${ordenes1()}`}
